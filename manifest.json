@@ -1,0 +1,18 @@
+{
+  "manifest_version": 2,
+  "name": "Spadinh",
+  "version": "1.0",
+  "description": "choonz",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  }
+}

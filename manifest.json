@@ -1,18 +1,21 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Spadinh",
+  "description": "ch00nz",
+  "permissions": ["activeTab", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "version": "1.0",
-  "description": "choonz",
-  "permissions": ["activeTab"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
-      "run_at": "document_end"
+      "js": ["content.js"]
     }
-  ],
-  "browser_action": {
-    "default_popup": "popup.html",
-    "default_icon": "icon.png"
-  }
+  ]
 }

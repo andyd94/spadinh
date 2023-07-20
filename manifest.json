@@ -6,8 +6,8 @@
   "host_permissions": ["<all_urls>"],
   "version": "1.0",
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_popup": "popup/popup.html",
+    "default_icon": "images/icon.png"
   },
   "background": {
     "service_worker": "background.js"
@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"]
+      "js": ["scripts/content.js"]
     }
   ]
 }

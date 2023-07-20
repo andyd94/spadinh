@@ -5,12 +5,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
 async function activateRatioFilter() {
     const tab = await getCurrentTab();
-    const ratio = document.getElementById("ratio").value;
+    const ratio = parseFloat(document.getElementById("ratio").value);
 
-    chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        // func: filterByRatio(ratio),
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "ratioFilter", ratio: ratio });
     });
+
+    // chrome.scripting.executeScript({
+    //     target: { tabId: tab.id },
+    //     files: ["scripts/content.js"],
+    // });
 }
 
 function filterByRatio(ratio) {

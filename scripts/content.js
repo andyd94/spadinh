@@ -1,13 +1,30 @@
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action == "ratioFilter") {
+        console.log("content received now!")
+        //elements = document.getElementsByClassName("shortcut_navigable");
+        const targetClass = "shortcut_navigable";
+        const elements = document.getElementsByClassName(targetClass);
+        const ratio = message.ratio;
 
+        Array.from(elements).forEach((element) => {
+            const haveWantElements = element.getElementsByClassName("community_number");
+            const have = parseFloat(haveWantElements[0].innerHTML);
+            const want = parseFloat(haveWantElements[1].innerHTML);
+            const recordName = element.querySelector(".item_description_title").innerHTML
+            const itemRatio = want/have;
 
-// chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-//     // 2. A page requested user data, respond with a copy of `user`
-//     console.log("content received")
-//
-//     if (message.action == "ratioFilter") {
-//         console.log("content received")
-//     }
-// });
+            console.log("record is " + recordName)
+
+            console.log("ratio: " + ratio);
+            console.log("item ratio: " + itemRatio);
+
+            if (itemRatio < ratio) {
+                console.log("removing item " + recordName);
+                element.remove();
+            }
+        });
+    }
+});
 
 // chrome.runtime.onmessage.addListener((message) => {
 //     if (message.action === "ratioFilter") {

@@ -1,75 +1,51 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    const targetClass = "shortcut_navigable";
+    const elements = document.getElementsByClassName(targetClass);
+
     if (message.action == "ratioFilter") {
-        console.log("content received now!")
         //elements = document.getElementsByClassName("shortcut_navigable");
-        const targetClass = "shortcut_navigable";
-        const elements = document.getElementsByClassName(targetClass);
         const ratio = message.ratio;
 
         Array.from(elements).forEach((element) => {
             const haveWantElements = element.getElementsByClassName("community_number");
             const have = parseFloat(haveWantElements[0].innerHTML);
             const want = parseFloat(haveWantElements[1].innerHTML);
-            const recordName = element.querySelector(".item_description_title").innerHTML
             const itemRatio = want/have;
-
-            console.log("record is " + recordName)
-
-            console.log("ratio: " + ratio);
-            console.log("item ratio: " + itemRatio);
+            // const recordName = element.querySelector(".item_description_title").innerHTML
+            // console.log("record is " + recordName)
+            // console.log("ratio: " + ratio);
+            // console.log("item ratio: " + itemRatio);
 
             if (itemRatio < ratio) {
-                console.log("removing item " + recordName);
+                // console.log("removing item " + recordName);
                 element.remove();
             }
         });
     }
-});
 
-// chrome.runtime.onmessage.addListener((message) => {
-//     if (message.action === "ratioFilter") {
-//         alert("yoooo")
-//         // Query active tab to retrieve matching elements
-//         // const targetClass = "shortcut_navigable";
-//         // const elements = document.getElementsByClassName(targetClass);
-//         // const ratio = message.ratio;
-//         //
-//         // Array.from(elements).forEach((element) => {
-//         //     const haveWantElements = element.querySelector(".community_result");
-//         //     const have = haveWantElements[0];
-//         //     const want = haveWantElements[1];
-//         //
-//         //     if (have/want < ratio) {
-//         //         element.remove();
-//         //     }
-//         // });
-//
-//         // chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
-//         //     const activeTab = tabs[0];
-//         //
-//         //     // Execute script to remove elements based on specified criteria
-//         //     chrome.scripting.executeScript({
-//         //         target: { tabId: activeTab.id },
-//         //         function: (targetClass, ratio) => {
-//         //             const elements = document.getElementsByClassName(targetClass);
-//         //             console.log(elements);
-//         //             Array.from(elements).forEach((element) => {
-//         //                 const haveWantElements = element.querySelector(".community_result");
-//         //                 const have = haveWantElements[0];
-//         //                 const want = haveWantElements[1];
-//         //
-//         //                 if (have/want < ratio) {
-//         //                     element.remove();
-//         //                 }
-//         //             });
-//         //         },
-//         //         args: [targetClass, ratio],
-//         //     });
-//         // });
-//
-//         // Optional: Send response back to content script
-//         // if (sendResponse) {
-//         //     sendResponse({ result: "Filtered by ratio" });
-//         // }
-//     }
-// });
+    if (message.action == "blindFilter") {
+        console.log("blindy");
+        Array.from(elements).forEach((element) => {
+            // Open the link in a new tab
+            const link = element.querySelector(".item_description_title").href
+            const tab = window.open(link, '_blank');
+
+            // Wait for the page to load
+            tab.addEventListener('load', () => {
+                // Evaluate the content of the visited page
+                const pageContent = tab.document.body.textContent;
+                const videoTitle = tab.document.querySelector(".head_WZcFZ");
+                const videosPresent = tab.document.querySelector(".videos_1xVCN li") !== null
+                console.log(videosPresent);
+                // Check if the page content satisfies your condition
+                if (videosPresent) {
+                    // Remove the link from the list
+                    element.remove();
+                }
+
+                // Close the tab after evaluating the content
+                tab.close();
+            });
+        });
+    }
+});

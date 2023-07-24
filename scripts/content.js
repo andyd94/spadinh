@@ -8,16 +8,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         Array.from(elements).forEach((element) => {
             const haveWantElements = element.getElementsByClassName("community_number");
-            const have = parseFloat(haveWantElements[0].innerHTML);
-            const want = parseFloat(haveWantElements[1].innerHTML);
+            const have = parseFloat(element.querySelector(".community_label").innerHTML);
+            const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
             const itemRatio = want/have;
-            // const recordName = element.querySelector(".item_description_title").innerHTML
-            // console.log("record is " + recordName)
-            // console.log("ratio: " + ratio);
-            // console.log("item ratio: " + itemRatio);
+            const recordName = element.querySelector(".item_description_title").innerHTML
+            console.log("record is " + recordName)
+            console.log("ratio: " + ratio);
+            console.log("item ratio: " + itemRatio);
 
             if (itemRatio < ratio) {
-                // console.log("removing item " + recordName);
+                console.log("removing item " + recordName);
                 element.remove();
             }
         });

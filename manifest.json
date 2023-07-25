@@ -14,7 +14,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["https://*.discogs.com/*", "http://*.discogs.com/*"],
       "js": ["scripts/content.js"]
     }
   ]

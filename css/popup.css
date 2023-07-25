@@ -5,3 +5,7 @@
 .text-centre {
     text-align: center;
 }
+
+.hidden {
+    display: none;
+}

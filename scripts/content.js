@@ -3,26 +3,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const elements = document.getElementsByClassName(targetClass);
 
     if (message.action === "ratioFilter") {
-        //elements = document.getElementsByClassName("shortcut_navigable");
-        const ratio = message.ratio;
-
-        Array.from(elements).forEach((element) => {
-            const have = parseFloat(element.querySelector(".community_label").innerHTML);
-            const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
-            const itemRatio = want/have;
-
-            if (itemRatio < ratio) {
-                element.remove();
-            }
-        });
-
-        alert("Finished filtering by ratio");
+        processRatioFilter(message.ratio);
     }
 
     if (message.action === "blindFilter") {
         processBlindBuys().then(r => alert("Finished filtering blinds"));
     }
 });
+
+function processRatioFilter(ratio) {
+    const elements = document.getElementsByClassName("shortcut_navigable");
+
+    Array.from(elements).forEach((element) => {
+        const have = parseFloat(element.querySelector(".community_label").innerHTML);
+        const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
+        const itemRatio = want/have;
+
+        if (itemRatio < ratio) {
+            element.remove();
+        }
+    });
+
+    alert("Finished filtering by ratio");
+}
 
 async function processBlindBuys() {
     const targetClass = "shortcut_navigable";

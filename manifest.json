@@ -9,9 +9,6 @@
     "default_popup": "popup/popup.html",
     "default_icon": "images/icon.png"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
   "content_scripts": [
     {
       "matches": ["https://*.discogs.com/*", "http://*.discogs.com/*"],

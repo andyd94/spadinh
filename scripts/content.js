@@ -27,21 +27,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function processBlindBuys() {
     const targetClass = "shortcut_navigable";
     const elements = document.getElementsByClassName(targetClass);
-    // Loop through the links and check each one
     let elementsToRemove = [];
+
     for (const element of elements) {
         const href = element.querySelector("a").href;
 
-        // Make an HTTP GET request to retrieve the HTML content of the link's URL
         try {
             const response = await fetch(href);
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error("Network response was not ok");
             }
 
             const htmlContent = await response.text();
-            // Create a temporary div element to hold the HTML content for manipulation
-            const tempDiv = document.createElement('div');
+            const tempDiv = document.createElement("div");
             tempDiv.innerHTML = htmlContent;
             const containerIdentifier = ".section.video";
             const desiredTag = "h2";

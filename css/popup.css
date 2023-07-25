@@ -9,3 +9,7 @@
 .hidden {
     display: none;
 }
+
+footer {
+    min-height: 54.8px;
+}

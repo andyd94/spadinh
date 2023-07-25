@@ -3,17 +3,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const elements = document.getElementsByClassName(targetClass);
 
     if (message.action === "ratioFilter") {
-        processRatioFilter(message.ratio);
+        processRatioFilter(message.ratio, elements);
+        sendResponse({success: true})
     }
 
     if (message.action === "blindFilter") {
-        processBlindBuys().then(r => alert("Finished filtering blinds"));
+        processBlindBuys(elements).then(r => sendResponse({success: true}))
     }
 });
 
-function processRatioFilter(ratio) {
-    const elements = document.getElementsByClassName("shortcut_navigable");
-
+function processRatioFilter(ratio, elements) {
     Array.from(elements).forEach((element) => {
         const have = parseFloat(element.querySelector(".community_label").innerHTML);
         const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
@@ -24,12 +23,10 @@ function processRatioFilter(ratio) {
         }
     });
 
-    alert("Finished filtering by ratio");
+    taskComplete();
 }
 
-async function processBlindBuys() {
-    const targetClass = "shortcut_navigable";
-    const elements = document.getElementsByClassName(targetClass);
+async function processBlindBuys(elements) {
     let elementsToRemove = [];
 
     for (const element of elements) {
@@ -61,4 +58,10 @@ async function processBlindBuys() {
     Array.from(elementsToRemove).forEach((element) => {
         element.remove();
     });
+
+    taskComplete();
+}
+
+function taskComplete() {
+    chrome.runtime.sendMessage({name: "taskComplete"})
 }

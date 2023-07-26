@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Spadinh",
   "description": "ch00nz",
-  "permissions": ["activeTab", "tabs", "scripting", "storage"],
+  "permissions": ["activeTab", "tabs", "scripting", "storage", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "version": "1.0",
   "action": {

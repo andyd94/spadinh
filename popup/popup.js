@@ -2,9 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const ratioButton = document.getElementById("ratio-filter");
     const ratioInput = document.getElementById("ratio");
     const blindButton = document.getElementById("blind-filter");
+    const instrumentalButton = document.getElementById("instrumental-filter");
 
     ratioButton.addEventListener("click", activateRatioFilter);
     blindButton.addEventListener("click", activateBlindFilter);
+    instrumentalButton.addEventListener("click", activateInstrumentalFilter);
 
     ratioInput.addEventListener("input", () => {
         chrome.storage.local.set({ spadinhRatio: ratioInput.value }).then(() => {
@@ -37,6 +39,21 @@ function activateBlindFilter() {
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.tabs.sendMessage(tabs[0].id, { action: "blindFilter"});
+    });
+}
+
+function activateInstrumentalFilter() {
+    const instrumentalString = "instrumental|dubstrumental|dubstramenal|dub&";
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        let url = tabs[0].url
+        const indexOfPageString = url.indexOf("page=") - 1;
+        const endIndexOfPageString = indexOfPageString + 7;
+        const pageString = url.substring(indexOfPageString, endIndexOfPageString);
+        url = url.replace(pageString, "");
+        const newUrl = url.replace("?", "?q=" + instrumentalString);
+
+        chrome.tabs.update({ url: newUrl });
     });
 }
 

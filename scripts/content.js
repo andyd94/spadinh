@@ -62,6 +62,10 @@ async function processBlindBuys(elements) {
     taskComplete();
 }
 
+// function processInstrumentalFilter() {
+//
+// }
+
 function taskComplete() {
     chrome.runtime.sendMessage({name: "taskComplete"})
 }

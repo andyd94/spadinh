@@ -17,3 +17,7 @@ footer {
 #loading {
     width: 20%;
 }
+
+#filters-table > td {
+    text-align: right;
+}

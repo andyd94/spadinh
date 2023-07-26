@@ -8,11 +8,10 @@
         <header>
             <img id="logo" src="/images/icon500.png">
         </header>
-        <table>
+        <table id="filters-table">
+
             <tr>
-                <td class="text-right">
-                    <label for="ratio">Ratio:</label>
-                </td>
+                <td class="text-right">Ratio:</td>
                 <td>
                     <input id="ratio" type="number" class="text-centre" value="0.75">
                 </td>
@@ -21,9 +20,14 @@
                 </td>
             </tr>
             <tr>
-                <td>Blindbuy:</td>
+                <td class="text-right">Blindbuy:</td>
                 <td></td>
                 <td><button id="blind-filter">Filter</button></td>
+            </tr>
+            <tr>
+                <td class="text-right">Instrumentals:</td>
+                <td></td>
+                <td><button id="instrumental-filter">Filter</button></td>
             </tr>
         </table>
         <footer class="text-centre">

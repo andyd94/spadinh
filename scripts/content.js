@@ -13,15 +13,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function processRatioFilter(ratio, elements) {
-    Array.from(elements).forEach((element) => {
-        const have = parseFloat(element.querySelector(".community_label").innerHTML);
-        const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
-        const itemRatio = want/have;
+    for (const element of Array.from(elements)) {
+        try {
+            const have = parseFloat(element.querySelector(".community_label").innerHTML);
+            const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
+            const itemRatio = want/have;
 
-        if (itemRatio < ratio) {
-            element.remove();
+            if (itemRatio < ratio) {
+                element.remove();
+            }
+        } catch (error) {
+            console.log("Unable to remove the element below:");
+            console.log(element)
         }
-    });
+    }
 
     taskComplete();
 }
@@ -61,10 +66,6 @@ async function processBlindBuys(elements) {
 
     taskComplete();
 }
-
-// function processInstrumentalFilter() {
-//
-// }
 
 function taskComplete() {
     chrome.runtime.sendMessage({name: "taskComplete"})

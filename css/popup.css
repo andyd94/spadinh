@@ -13,3 +13,7 @@
 footer {
     min-height: 54.8px;
 }
+
+#loading {
+    width: 20%;
+}

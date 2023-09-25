@@ -3,27 +3,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const ratioInput = document.getElementById("ratio");
     const blindButton = document.getElementById("blind-filter");
     const instrumentalButton = document.getElementById("instrumental-filter");
+    const autoRatioFilterCheck = document.getElementById("auto-ratio-filter");
 
     ratioButton.addEventListener("click", activateRatioFilter);
     blindButton.addEventListener("click", activateBlindFilter);
     instrumentalButton.addEventListener("click", activateInstrumentalFilter);
 
+    autoRatioFilterCheck.addEventListener("click", () => {
+        chrome.storage.local.set({ autoRatioFilter: autoRatioFilterCheck.checked }).then(() => {
+            console.log("Saved auto ratio filter value as " + autoRatioFilterCheck.checked);
+        });
+    });
+
+    chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
+        if (result.key !== null && result.autoRatioFilter !== undefined) {
+            autoRatioFilterCheck.checked = result.autoRatioFilter;
+        }
+    });
+
     ratioInput.addEventListener("input", () => {
         chrome.storage.local.set({ spadinhRatio: ratioInput.value }).then(() => {
             console.log("Saved ratio value as " + ratioInput.value);
-
-            chrome.storage.local.get(["spadinhRatio"]).then((result) => {
-                console.log(result.spadinhRatio);
-            });
         });
     });
 
     chrome.storage.local.get(["spadinhRatio"]).then((result) => {
         if (result.key !== null && result.spadinhRatio !== undefined) {
-            ratioInput.value = result.spadinhRatio
+            ratioInput.value = result.spadinhRatio;
         }
     });
 });
+
 
 function activateRatioFilter() {
     const ratio = parseFloat(document.getElementById("ratio").value);

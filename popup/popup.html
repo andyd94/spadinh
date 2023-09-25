@@ -10,25 +10,35 @@
         </header>
         <br><br>
         <table id="filters-table">
-            <tr>
-                <td class="text-right">Ratio:</td>
-                <td>
-                    <input id="ratio" type="number" class="text-centre" value="0.75">
-                </td>
-                <td>
-                    <button id="ratio-filter">Filter</button>
-                </td>
-            </tr>
-            <tr>
-                <td class="text-right">Blind Buy:</td>
-                <td></td>
-                <td><button id="blind-filter">Filter</button></td>
-            </tr>
-            <tr>
-                <td class="text-right">Instrumentals:</td>
-                <td></td>
-                <td><button id="instrumental-filter">Filter</button></td>
-            </tr>
+            <tbody>
+                <tr>
+                    <td class="text-right">Ratio:</td>
+                    <td>
+                        <input id="ratio" type="number" class="text-centre" value="0.75">
+                    </td>
+                    <td>
+                        <button id="ratio-filter">Filter</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="text-right"></td>
+                    <td>
+                        <input type="checkbox" id="auto-ratio-filter" name="auto-ratio-filter" style="margin:0"/>
+                        <small style="vertical-align: text-top"> auto</small>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-right">Blind Buy:</td>
+                    <td></td>
+                    <td><button id="blind-filter">Filter</button></td>
+                </tr>
+                <tr>
+                    <td class="text-right">Instrumentals:</td>
+                    <td></td>
+                    <td><button id="instrumental-filter">Filter</button></td>
+                </tr>
+            </tbody>
         </table>
         <footer class="text-centre">
             <img id="loading" class="hidden" src="/images/loadinhgrey.gif">

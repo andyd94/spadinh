@@ -8,4 +8,11 @@
 
 ## Usage
 
-Each action will alert you once completed
+A spinning wheel will appear then disappear when the current action completes.
+
+#### Ratio Filter
+
+- The "auto" checkbox under the ratio filter will determine whether this filter will automatically run on page load.
+
+- Alternatively you can press Ctrl + Shift to trigger this action.
+

@@ -16,3 +16,4 @@ A spinning wheel will appear then disappear when the current action completes.
 
 - Alternatively you can press Ctrl + Shift to trigger this action.
 
+- The record count text will update to reflect the new number of results on the page.

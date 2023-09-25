@@ -15,8 +15,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function processRatioFilter(ratio, elements) {
     for (const element of Array.from(elements)) {
         try {
-            const have = parseFloat(element.querySelector(".community_label").innerHTML);
-            const want = parseFloat(element.querySelectorAll(".community_number")[1].innerHTML);
+            const have = parseFloat(element.querySelector(".community_number").innerHTML);
+            const want = parseFloat(element.querySelectorAll(".community_label")[1].innerHTML);
             const itemRatio = want/have;
 
             if (itemRatio < ratio) {

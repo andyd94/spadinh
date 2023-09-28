@@ -8,17 +8,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         processRatioFilter(message.ratio);
         sendResponse({success: true})
     }
-
-    if (message.action === "blindFilter") {
-        processBlindBuys().then(r => sendResponse({success: true}))
-    }
 });
 
 function autoRatioFilterListener() {
-    chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
-        if (result.key !== null && result.autoRatioFilter !== undefined && result.autoRatioFilter === true) {
-            autoProcessRatioFilter();
-        }
+    if (!autoRatioFilterOn()) {
+        return false;
+    }
+
+    autoProcessRatioFilter();
+
+    // chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
+    //     if (result.key !== null && result.autoRatioFilter !== undefined && result.autoRatioFilter === true) {
+    //         autoProcessRatioFilter();
+    //     }
+    // });
+}
+
+async function autoRatioFilterOn() {
+    const result = await getAutoRatioFilter();
+    return result.key !== null && result.autoRatioFilter !== undefined && result.autoRatioFilter === true;
+}
+
+async function getAutoRatioFilter() {
+    // const readLocalStorage = async (key) => {
+    //     return new Promise((resolve, reject) => {
+    //         chrome.storage.local.get([key], function (result) {
+    //             if (result[key] === undefined) {
+    //                 reject();
+    //             } else {
+    //                 resolve(result);
+    //             }
+    //         });
+    //     });
+    // };
+    //
+    // return readLocalStorage();
+
+    return await chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
+        return result;
     });
 }
 
@@ -86,57 +113,4 @@ function processRatioFilter(ratio) {
 
     sendTaskCompleteMessage();
     updatePaginationText();
-}
-
-async function processBlindBuys() {
-    const elements = document.getElementsByClassName(recordClass);
-    let elementsToRemove = [];
-
-    for (const element of elements) {
-        const href = element.querySelector("a").href;
-
-        try {
-            const response = await fetch(href);
-            if (!response.ok) {
-                throw new Error("Network response was not ok");
-            }
-
-            const htmlContent = await response.text();
-            const tempDiv = document.createElement("div");
-            tempDiv.innerHTML = htmlContent;
-            const containerIdentifier = ".section.video";
-            const desiredTag = "h2";
-            const videoContainer = tempDiv.querySelector(containerIdentifier);
-            const videoHeaderText = videoContainer.querySelector(desiredTag).innerHTML;
-            let isBlindBuy = !videoHeaderText.includes("(");
-
-            if (!isBlindBuy) {
-                elementsToRemove.push(element);
-            }
-        } catch (error) {
-            console.error(`Error processing link ${href}: ${error}`);
-        }
-    }
-
-    Array.from(elementsToRemove).forEach((element) => {
-        element.remove();
-    });
-
-    sendTaskCompleteMessage();
-}
-
-function sendTaskCompleteMessage() {
-    chrome.runtime.sendMessage({name: "taskComplete"})
-}
-
-function updatePaginationText() {
-    const recordElements = document.getElementsByClassName(recordClass);
-    const elements = document.getElementsByClassName("pagination_total");
-
-    for (const element of Array.from(elements)) {
-        const text = element.innerHTML;
-        const textArray = text.split(" of ");
-        const totalCountText = textArray[1];
-        element.innerHTML = "Filtered List of 1 - " + recordElements.length + " of " + totalCountText;
-    }
 }

@@ -4,10 +4,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const blindButton = document.getElementById("blind-filter");
     const instrumentalButton = document.getElementById("instrumental-filter");
     const autoRatioFilterCheck = document.getElementById("auto-ratio-filter");
+    const browseAllRecordsButton = document.getElementById("browse-all-records");
 
     ratioButton.addEventListener("click", activateRatioFilter);
     blindButton.addEventListener("click", activateBlindFilter);
     instrumentalButton.addEventListener("click", activateInstrumentalFilter);
+    browseAllRecordsButton.addEventListener("click", activateBrowseAllRecords);
 
     autoRatioFilterCheck.addEventListener("click", () => {
         chrome.storage.local.set({ autoRatioFilter: autoRatioFilterCheck.checked }).then(() => {
@@ -33,6 +35,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
+
+function activateBrowseAllRecords() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "browseAllRecords" });
+    });
+}
 
 
 function activateRatioFilter() {

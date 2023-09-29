@@ -17,7 +17,7 @@
   "content_scripts": [
     {
       "matches": ["https://*.discogs.com/*", "http://*.discogs.com/*"],
-      "js": ["scripts/ratio-filter.js", "scripts/blindbuy-filter.js"]
+      "js": ["scripts/_global.js", "scripts/ratio-filter.js"]
     }
   ]
 }

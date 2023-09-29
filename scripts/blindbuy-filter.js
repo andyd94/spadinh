@@ -1,5 +1,3 @@
-const recordClass = "shortcut_navigable";
-
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "blindFilter") {
         processBlindBuys().then(r => sendResponse({success: true}))
@@ -11,7 +9,7 @@ async function processBlindBuys() {
     let elementsToRemove = [];
 
     for (const element of elements) {
-        const href = element.querySelector("a").href;
+        const href = element.querySelector(".item_release_link").href;
 
         try {
             const response = await fetch(href);
@@ -41,20 +39,4 @@ async function processBlindBuys() {
     });
 
     sendTaskCompleteMessage();
-}
-
-function sendTaskCompleteMessage() {
-    chrome.runtime.sendMessage({name: "taskComplete"})
-}
-
-function updatePaginationText() {
-    const recordElements = document.getElementsByClassName(recordClass);
-    const elements = document.getElementsByClassName("pagination_total");
-
-    for (const element of Array.from(elements)) {
-        const text = element.innerHTML;
-        const textArray = text.split(" of ");
-        const totalCountText = textArray[1];
-        element.innerHTML = "Filtered List of 1 - " + recordElements.length + " of " + totalCountText;
-    }
 }

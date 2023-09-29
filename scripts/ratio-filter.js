@@ -1,27 +1,93 @@
-const recordClass = "shortcut_navigable";
-
+ratioFilterListener()
 ratioFilterKeysListener();
 autoRatioFilterListener();
+loadPaginationListener();
+browseAllRecordsListener();
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "ratioFilter") {
-        processRatioFilter(message.ratio);
-        sendResponse({success: true})
-    }
-});
+function ratioFilterListener() {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === "ratioFilter") {
+            processRatioFilter(message.ratio);
+            sendResponse({success: true})
+        }
+    });
+}
 
-function autoRatioFilterListener() {
-    if (!autoRatioFilterOn()) {
+function browseAllRecordsListener() {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === "browseAllRecords") {
+            browseAllRecords();
+        }
+    });
+}
+
+function loadPaginationListener() {
+    // Select the target element you want to watch
+    const targetElement = document.getElementById("pjax_container");
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver((mutationsList) => {
+        mutationsList.forEach((mutation) => {
+            if (mutation.type === "attributes" && mutation.attributeName === "class") {
+                // Check if the "watched-class" has been removed
+                if (!targetElement.classList.contains("loading")) {
+                    // Trigger your custom event here
+                    const event = new Event("classRemoved");
+                    targetElement.dispatchEvent(event);
+                }
+            }
+        });
+    });
+
+    observer.observe(targetElement, { attributes: true });
+
+    targetElement.addEventListener("classRemoved", () => loadPaginationHandler(), false);
+}
+
+async function loadPaginationHandler() {
+    if (!await standardAutoRatioChecks()) {
         return false;
     }
 
-    autoProcessRatioFilter();
+    autoRatioFilter();
+}
 
-    // chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
-    //     if (result.key !== null && result.autoRatioFilter !== undefined && result.autoRatioFilter === true) {
-    //         autoProcessRatioFilter();
-    //     }
-    // });
+function updatePaginationText() {
+    const recordElements = document.getElementsByClassName(recordClass);
+    const elements = document.getElementsByClassName("pagination_total");
+    const elementCountPerPage = document.getElementById("limit_top").value;
+
+    for (const element of Array.from(elements)) {
+        const text = element.innerHTML;
+        const textArray = text.split(" of ");
+        const totalCountText = textArray[1];
+        let displayedPageCount = elementCountPerPage;
+
+        if (parseFloat(displayedPageCount) > parseFloat(totalCountText.replace(",", ""))) {
+            displayedPageCount = totalCountText;
+        }
+
+        element.innerHTML = "Filtered list of " + recordElements.length + "/" + displayedPageCount + " records, out of " + totalCountText + " in total";
+    }
+}
+
+function onSellerPage() {
+    return window.location.href.includes("seller");
+}
+
+async function autoRatioFilterListener() {
+    if (!await standardAutoRatioChecks()) {
+        return false;
+    }
+
+    autoRatioFilter();
+}
+
+async function standardAutoRatioChecks() {
+    const autoOn = await autoRatioFilterOn();
+    const sellerPage = onSellerPage();
+
+    return autoOn && sellerPage;
 }
 
 async function autoRatioFilterOn() {
@@ -30,20 +96,6 @@ async function autoRatioFilterOn() {
 }
 
 async function getAutoRatioFilter() {
-    // const readLocalStorage = async (key) => {
-    //     return new Promise((resolve, reject) => {
-    //         chrome.storage.local.get([key], function (result) {
-    //             if (result[key] === undefined) {
-    //                 reject();
-    //             } else {
-    //                 resolve(result);
-    //             }
-    //         });
-    //     });
-    // };
-    //
-    // return readLocalStorage();
-
     return await chrome.storage.local.get(["autoRatioFilter"]).then((result) => {
         return result;
     });
@@ -67,7 +119,7 @@ function ratioFilterKeysListener() {
 
         // Check if both Control and Shift keys are pressed
         if (ctrlPressed && shiftPressed) {
-            autoProcessRatioFilter();
+            autoRatioFilter();
         }
     });
 
@@ -83,8 +135,9 @@ function ratioFilterKeysListener() {
     });
 }
 
-function autoProcessRatioFilter() {
+function autoRatioFilter() {
     let ratio = 0.75;
+    
     chrome.storage.local.get(["spadinhRatio"]).then((result) => {
         if (result.key !== null && result.spadinhRatio !== undefined) {
             ratio = result.spadinhRatio;
@@ -114,3 +167,7 @@ function processRatioFilter(ratio) {
     sendTaskCompleteMessage();
     updatePaginationText();
 }
+
+
+
+

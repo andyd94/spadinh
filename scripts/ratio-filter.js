@@ -1,8 +1,10 @@
-ratioFilterListener()
-ratioFilterKeysListener();
-autoRatioFilterListener();
-loadPaginationListener();
-browseAllRecordsListener();
+if (onSellerPage()) {
+    ratioFilterListener()
+    ratioFilterKeysListener();
+    autoRatioFilterListener();
+    loadPaginationListener();
+    browseAllRecordsListener();
+}
 
 function ratioFilterListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -45,7 +47,7 @@ function loadPaginationListener() {
 }
 
 async function loadPaginationHandler() {
-    if (!await standardAutoRatioChecks()) {
+    if (!await autoRatioFilterOn()) {
         return false;
     }
 
@@ -76,7 +78,7 @@ function onSellerPage() {
 }
 
 async function autoRatioFilterListener() {
-    if (!await standardAutoRatioChecks()) {
+    if (!await autoRatioFilterOn()) {
         return false;
     }
 

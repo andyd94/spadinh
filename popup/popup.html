@@ -12,35 +12,49 @@
         <table id="filters-table">
             <tbody>
                 <tr>
+                    <td class="text-right">Ratio:</td>
+                    <td><input id="ratio" type="number" class="text-centre full-width" value="0.75"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td class="text-right">
+                        Avoid Labels:
+                        <small>(comma separated)</small>
+                    </td>
+                    <td><textarea id="avoid-labels"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="text-right">
+                        Avoid Artists:
+                        <small>(comma separated)</small>
+                    </td>
+                    <td><textarea id="avoid-artists"></textarea></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="text-right">
+                        <input id="auto-ratio-filter" type="checkbox" name="auto-ratio-filter" style="margin:0"/>
+                        <small style="vertical-align: top;">auto</small></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><button id="ratio-filter" class="full-width">Filter</button></td>
+                </tr>
+                <tr>
                     <td></td>
                     <td><button id="browse-all-records" class="full-width">Browse All Records</button></td>
                 </tr>
-                <tr>
-                    <td class="text-right">Ratio:</td>
-                    <td>
-                        <input id="ratio" type="number" class="text-centre" value="0.75">
-                    </td>
-                    <td>
-                        <button id="ratio-filter">Filter</button>
-                    </td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td class="text-right"></td>
-                    <td>
-                        <input type="checkbox" id="auto-ratio-filter" name="auto-ratio-filter" style="margin:0"/>
-                        <small style="vertical-align: text-top"> auto</small>
-                    </td>
-                </tr>
+                <tr><td></td><td class="text-centre">---</td><td></td></tr>
                 <tr>
                     <td class="text-right">Blind Buy:</td>
+                    <td><button id="blind-filter" class="full-width">Filter</button></td>
                     <td></td>
-                    <td><button id="blind-filter">Filter</button></td>
                 </tr>
                 <tr>
                     <td class="text-right">Instrumentals:</td>
+                    <td><button id="instrumental-filter" class="full-width">Filter</button></td>
                     <td></td>
-                    <td><button id="instrumental-filter">Filter</button></td>
                 </tr>
             </tbody>
         </table>

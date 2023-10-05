@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const instrumentalButton = document.getElementById("instrumental-filter");
     const autoRatioFilterCheck = document.getElementById("auto-ratio-filter");
     const browseAllRecordsButton = document.getElementById("browse-all-records");
+    const artistTextArea = document.getElementById("avoid-artists");
+    const labelTextArea = document.getElementById("avoid-labels");
 
     ratioButton.addEventListener("click", activateRatioFilter);
     blindButton.addEventListener("click", activateBlindFilter);
@@ -32,6 +34,30 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.local.get(["spadinhRatio"]).then((result) => {
         if (result.key !== null && result.spadinhRatio !== undefined) {
             ratioInput.value = result.spadinhRatio;
+        }
+    });
+
+    artistTextArea.addEventListener("input", () => {
+        chrome.storage.local.set({ avoidArtists: artistTextArea.value }).then(() => {
+            console.log("Saved avoid artists value as " + artistTextArea.value);
+        });
+    });
+
+    chrome.storage.local.get(["avoidArtists"]).then((result) => {
+        if (result.key !== null && result.avoidArtists !== undefined) {
+            artistTextArea.value = result.avoidArtists;
+        }
+    });
+
+    labelTextArea.addEventListener("input", () => {
+        chrome.storage.local.set({ avoidLabels: labelTextArea.value }).then(() => {
+            console.log("Saved avoid artists value as " + labelTextArea.value);
+        });
+    });
+
+    chrome.storage.local.get(["avoidLabels"]).then((result) => {
+        if (result.key !== null && result.avoidLabels !== undefined) {
+            labelTextArea.value = result.avoidLabels;
         }
     });
 });

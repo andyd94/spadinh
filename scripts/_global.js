@@ -1,5 +1,9 @@
 const recordClass = "shortcut_navigable";
 
+function onSellerPage() {
+    return window.location.href.includes("seller");
+}
+
 function sendTaskCompleteMessage() {
     chrome.runtime.sendMessage({name: "taskComplete"})
 }

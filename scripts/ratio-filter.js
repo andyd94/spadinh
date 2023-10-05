@@ -1,10 +1,20 @@
-if (onSellerPage()) {
-    ratioFilterListener()
+let artistsToAvoid = [];
+let labelsToAvoid = [];
+
+init();
+
+async function init() {
+    if (!onSellerPage()) {
+        return false;
+    }
+
+    ratioFilterListener();
     ratioFilterKeysListener();
     autoRatioFilterListener();
     loadPaginationListener();
     browseAllRecordsListener();
 }
+
 
 function ratioFilterListener() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -73,10 +83,6 @@ function updatePaginationText() {
     }
 }
 
-function onSellerPage() {
-    return window.location.href.includes("seller");
-}
-
 async function autoRatioFilterListener() {
     if (!await autoRatioFilterOn()) {
         return false;
@@ -102,6 +108,19 @@ async function getAutoRatioFilter() {
         return result;
     });
 }
+
+async function getAvoidArtists() {
+    return await chrome.storage.local.get(["avoidArtists"]).then((result) => {
+        return result.avoidArtists.split(",");
+    });
+}
+
+async function getAvoidLabels() {
+    return await chrome.storage.local.get(["avoidLabels"]).then((result) => {
+        return result.avoidLabels.split(",");
+    });
+}
+
 
 function ratioFilterKeysListener() {
     // Initialize variables to track key states
@@ -148,7 +167,9 @@ function autoRatioFilter() {
     processRatioFilter(ratio);
 }
 
-function processRatioFilter(ratio) {
+async function processRatioFilter(ratio) {
+    labelsToAvoid = await getAvoidLabels();
+    artistsToAvoid = await getAvoidArtists();
     const elements = document.getElementsByClassName(recordClass);
 
     for (const element of Array.from(elements)) {
@@ -156,8 +177,9 @@ function processRatioFilter(ratio) {
             const have = parseFloat(element.getElementsByClassName("community_number")[0].innerHTML);
             const want = parseFloat(element.getElementsByClassName("community_label")[1].innerHTML);
             const itemRatio = want/have;
+            const ratioTooLow = itemRatio < ratio;
 
-            if (itemRatio < ratio) {
+            if (ratioTooLow || artistAvoided(element) || labelAvoided(element)) {
                 element.remove();
             }
         } catch (error) {
@@ -168,6 +190,31 @@ function processRatioFilter(ratio) {
 
     sendTaskCompleteMessage();
     updatePaginationText();
+}
+
+function artistAvoided(element) {
+    try {
+        const title = element.querySelector(".item_description_title").innerHTML;
+        const artistName = title.split(" - ")[0].toLowerCase();
+
+        return artistsToAvoid.includes(artistName);
+    } catch(error) {
+        return true;
+    }
+}
+
+function labelAvoided(element) {
+    try {
+        const regex = /\(\d+\)/g;
+        const labelName = element.querySelector(".label_and_cat a").innerHTML
+            .replace(regex, "")
+            .trim()
+            .toLowerCase();
+
+        return labelsToAvoid.includes(labelName);
+    } catch(error) {
+        return true;
+    }
 }
 
 

@@ -14,10 +14,18 @@
     "48": "images/icon48.png",
     "128": "images/icon128.png"
   },
+  "background": {
+    "service_worker": "scripts/background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://*.discogs.com/*", "http://*.discogs.com/*"],
-      "js": ["scripts/_global.js", "scripts/ratio-filter.js"]
+      "js": [
+        "scripts/_global.js",
+        "scripts/ratio-filter.js",
+        "scripts/dinhscogvery-keys.js",
+        "scripts/dinhscogvery-marks.js"
+      ]
     }
   ]
 }

@@ -1,3 +1,218 @@
+/* Base styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    color: #e2e8f0;
+    padding: 10px;
+    min-width: 380px;
+    max-width: 380px;
+}
+
+/* Header */
+header {
+    background: #2d3748;
+    border-radius: 16px 16px 0 0;
+    padding: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+#logo {
+    height: 48px;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Panel: one card, sections separated by a rule (replaces the old "---" rows) */
+#panel {
+    background: #2d3748;
+    border-radius: 0 0 16px 16px;
+    padding: 4px 14px 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+#panel section {
+    padding: 8px 0;
+}
+
+#panel section + section {
+    border-top: 1px solid #4a5568;
+}
+
+/* Two-column form: right-aligned label, then the control */
+.form-grid {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    column-gap: 10px;
+    row-gap: 6px;
+    align-items: center;
+}
+
+.form-grid > label {
+    text-align: right;
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.inline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.inline input[type="number"] {
+    flex: 1;
+}
+
+.check {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.check small {
+    margin: 0;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+}
+
+/* Input styles */
+input[type="number"],
+input[type="url"],
+textarea {
+    width: 100%;
+    padding: 5px 10px;
+    border: 2px solid #4a5568;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    background: #1a202c;
+    color: #e2e8f0;
+}
+
+input[type="number"]:focus,
+input[type="url"]:focus,
+textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: #2d3748;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 32px;
+    height: 32px;
+    line-height: 1.4;
+}
+
+/* Checkbox styles */
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+/* Button styles */
+button {
+    flex: 1;
+    width: 100%;
+    padding: 7px 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+}
+
+#browse-all-records {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+}
+
+#browse-all-records:hover {
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+}
+
+#instrumental-filter {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    box-shadow: 0 2px 8px rgba(237, 137, 54, 0.3);
+}
+
+#instrumental-filter:hover {
+    box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
+}
+
+#dcv-pass {
+    background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+    box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+}
+
+#dcv-pass:hover {
+    box-shadow: 0 4px 12px rgba(245, 101, 101, 0.4);
+}
+
+#dcv-revisit {
+    background: linear-gradient(135deg, #4fd1c5 0%, #319795 100%);
+    box-shadow: 0 2px 8px rgba(79, 209, 197, 0.3);
+}
+
+#dcv-revisit:hover {
+    box-shadow: 0 4px 12px rgba(79, 209, 197, 0.4);
+}
+
+/* Typography */
+small {
+    font-size: 10px;
+    color: #718096;
+    display: block;
+    margin-top: 1px;
+}
+
+#dcv-status {
+    color: #cbd5e0;
+    min-height: 12px;
+    margin: 0;
+    cursor: pointer;
+}
+
+#dcv-status:hover {
+    color: #4fd1c5;
+}
+
+/* Utility classes */
 .full-width {
     width: 100%;
 }
@@ -12,24 +227,4 @@
 
 .hidden {
     display: none;
-}
-
-footer {
-    min-height: 77.38px;
-}
-
-#loading {
-    width: 25%;
-}
-
-#filters-table > td {
-    text-align: right;
-}
-
-#logo {
-    width: 97%;
-}
-
-small {
-    font-size: 69%;
 }

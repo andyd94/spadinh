@@ -2,64 +2,64 @@
     <head>
         <link rel="stylesheet" href="/css/popup.css">
         <script src="popup.js"></script>
+        <script src="dinhscogvery.js"></script>
         <title>Spadinh</title>
     </head>
     <body>
         <header class="text-centre">
             <img id="logo" src="/images/iconlarge.png">
         </header>
-        <br><br>
-        <table id="filters-table">
-            <tbody>
-                <tr>
-                    <td class="text-right">Ratio:</td>
-                    <td><input id="ratio" type="number" class="text-centre full-width" value="0.75"></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td class="text-right">
-                        Avoid Labels:
-                        <small>(comma separated)</small>
-                    </td>
-                    <td><textarea id="avoid-labels"></textarea></td>
-                </tr>
-                <tr>
-                    <td class="text-right">
-                        Avoid Artists:
-                        <small>(comma separated)</small>
-                    </td>
-                    <td><textarea id="avoid-artists"></textarea></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td class="text-right">
-                        <input id="auto-ratio-filter" type="checkbox" name="auto-ratio-filter" style="margin:0"/>
-                        <small style="vertical-align: top;">auto</small></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td><button id="ratio-filter" class="full-width">Filter</button></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td><button id="browse-all-records" class="full-width">Browse All Records</button></td>
-                </tr>
-                <tr><td></td><td class="text-centre">---</td><td></td></tr>
-                <tr>
-                    <td class="text-right">Blind Buy:</td>
-                    <td><button id="blind-filter" class="full-width">Filter</button></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td class="text-right">Instrumentals:</td>
-                    <td><button id="instrumental-filter" class="full-width">Filter</button></td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
-        <footer class="text-centre">
-            <img id="loading" class="hidden" src="/images/loadinhgrey.gif">
-        </footer>
+        <main id="panel">
+            <section class="form-grid">
+                <label for="ratio">Ratio:</label>
+                <div class="inline">
+                    <input id="ratio" type="number" class="text-centre" value="0.75">
+                    <label class="check" for="auto-ratio-filter">
+                        <input id="auto-ratio-filter" type="checkbox" name="auto-ratio-filter"/>
+                        <small>auto</small>
+                    </label>
+                </div>
+
+                <label for="avoid-labels">
+                    Avoid Labels:
+                    <small>(comma separated)</small>
+                </label>
+                <textarea id="avoid-labels"></textarea>
+
+                <label for="avoid-artists">
+                    Avoid Artists:
+                    <small>(comma separated)</small>
+                </label>
+                <textarea id="avoid-artists"></textarea>
+
+                <span></span>
+                <div class="button-row">
+                    <button id="ratio-filter">Filter</button>
+                    <button id="browse-all-records">Browse All</button>
+                </div>
+            </section>
+
+            <section class="form-grid">
+                <label for="instrumental-filter">Instrumentals:</label>
+                <button id="instrumental-filter">Filter</button>
+            </section>
+
+            <section class="form-grid">
+                <label for="dcv-base-url">
+                    Dinhscogvery:
+                    <small>(API url)</small>
+                </label>
+                <input id="dcv-base-url" type="url">
+
+                <span></span>
+                <div class="button-row">
+                    <button id="dcv-pass">Pass</button>
+                    <button id="dcv-revisit">Revisit</button>
+                </div>
+
+                <span></span>
+                <small id="dcv-status" class="text-centre" title="Click to re-sync the passed/revisit lists and mark the page again"></small>
+            </section>
+        </main>
     </body>
 </html>

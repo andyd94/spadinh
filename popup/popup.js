@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     const ratioButton = document.getElementById("ratio-filter");
     const ratioInput = document.getElementById("ratio");
-    const blindButton = document.getElementById("blind-filter");
     const instrumentalButton = document.getElementById("instrumental-filter");
     const autoRatioFilterCheck = document.getElementById("auto-ratio-filter");
     const browseAllRecordsButton = document.getElementById("browse-all-records");
@@ -9,7 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const labelTextArea = document.getElementById("avoid-labels");
 
     ratioButton.addEventListener("click", activateRatioFilter);
-    blindButton.addEventListener("click", activateBlindFilter);
     instrumentalButton.addEventListener("click", activateInstrumentalFilter);
     browseAllRecordsButton.addEventListener("click", activateBrowseAllRecords);
 
@@ -71,48 +69,19 @@ function activateBrowseAllRecords() {
 
 function activateRatioFilter() {
     const ratio = parseFloat(document.getElementById("ratio").value);
-    showLoadingIcon();
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.tabs.sendMessage(tabs[0].id, { action: "ratioFilter", ratio: ratio });
     });
 }
 
-function activateBlindFilter() {
-    showLoadingIcon();
-
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.tabs.sendMessage(tabs[0].id, { action: "blindFilter"});
-    });
-}
-
 function activateInstrumentalFilter() {
-    const instrumentalString = "instrumental|dubstrumental|dubstramenal|dub&";
-
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        let url = tabs[0].url
-        const indexOfPageString = url.indexOf("page=") - 1;
-        const endIndexOfPageString = indexOfPageString + 7;
-        const pageString = url.substring(indexOfPageString, endIndexOfPageString);
-        url = url.replace(pageString, "");
-        const newUrl = url.replace("?", "?q=" + instrumentalString);
+        const currentUrl = new URL(tabs[0].url);
+        const instrumentalString = "instrumental|dubstrumental|dubstramenal|dub&";
 
-        chrome.tabs.update({ url: newUrl });
+        currentUrl.searchParams.set('q', instrumentalString);
+
+        chrome.tabs.update({ url: currentUrl.toString() });
     });
 }
-
-function showLoadingIcon() {
-    const loading = document.getElementById("loading");
-    loading.classList.remove("hidden");
-}
-
-function hideLoadingIcon() {
-    const loading = document.getElementById("loading");
-    loading.classList.add("hidden");
-}
-
-chrome.runtime.onMessage.addListener(({ name }) => {
-    if (name === "taskComplete") {
-        hideLoadingIcon();
-    }
-});

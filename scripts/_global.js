@@ -4,10 +4,6 @@ function onSellerPage() {
     return window.location.href.includes("seller");
 }
 
-function sendTaskCompleteMessage() {
-    chrome.runtime.sendMessage({name: "taskComplete"})
-}
-
 function browseAllRecords() {
     const elements = document.getElementsByClassName(recordClass);
 

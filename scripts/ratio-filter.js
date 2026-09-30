@@ -188,7 +188,6 @@ async function processRatioFilter(ratio) {
         }
     }
 
-    sendTaskCompleteMessage();
     updatePaginationText();
 }
 

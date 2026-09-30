@@ -103,13 +103,16 @@ async function dcvRequest(method, path, body) {
     }
 
     if (!response.ok) {
-        throw new DcvError(response.status, await readDcvDetail(response));
+        throw new DcvError(response.status, await readDcvDetail(response, baseUrl));
     }
 
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
 }
 
-async function readDcvDetail(response) {
+// Every error dinhscogvery raises carries a `detail`. A response without one didn't come from
+// dinhscogvery at all — most likely something else is answering on that address, which is easy to
+// hit when the API url points at a bare port. Say which address replied rather than "Bad Request".
+async function readDcvDetail(response, baseUrl) {
     try {
         const payload = await response.json();
 
@@ -121,10 +124,10 @@ async function readDcvDetail(response) {
             return payload.detail[0].msg;
         }
     } catch (error) {
-        // fall through to statusText below
+        // fall through to the not-dinhscogvery message below
     }
 
-    return response.statusText;
+    return "HTTP " + response.status + " from " + baseUrl + " - that isn't dinhscogvery answering";
 }
 
 async function getRevisitList() {
@@ -166,7 +169,7 @@ async function exportIds(query) {
     }
 
     if (!response.ok) {
-        throw new DcvError(response.status, await readDcvDetail(response));
+        throw new DcvError(response.status, await readDcvDetail(response, baseUrl));
     }
 
     return parseExportIds(await response.text());

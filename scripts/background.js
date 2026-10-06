@@ -323,13 +323,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// The embed frame knows which video is actually loaded, and its title (youtube-embed-keys.js
-// answers `ytCurrentVideoId`); the page around it only has a guess. The message goes to every
-// frame of the tab, and only the embed frame answers it — `null` when none does: no embed
-// mounted, or a page without our scripts.
+// The embed frame knows which video is actually loaded, and its title; the page around it only
+// has a guess. The player's own API is asked first (`readPlayerState`, run in the frame's main
+// world where it lives): it tracks videos switched through the IFrame API and says whether the
+// video is playing, so with several embeds the playing one wins. The content script's answer
+// (youtube-embed-keys.js, `ytCurrentVideoId`) is the fallback, scraped from the player's links.
+// `null` when nothing answers: no embed mounted, or a page without our scripts.
 async function askEmbedFrame(tabId) {
     if (tabId === null) {
         return null;
+    }
+
+    const fromPlayer = await askPlayerApi(tabId);
+
+    if (fromPlayer) {
+        return fromPlayer;
     }
 
     try {
@@ -339,6 +347,49 @@ async function askEmbedFrame(tabId) {
     } catch (error) {
         return null;
     }
+}
+
+async function askPlayerApi(tabId) {
+    try {
+        const frames = (await chrome.webNavigation.getAllFrames({ tabId: tabId })) || [];
+        const frameIds = frames
+            .filter((frame) => /^https:\/\/www\.youtube(-nocookie)?\.com\/embed\//.test(frame.url))
+            .map((frame) => frame.frameId);
+
+        if (frameIds.length === 0) {
+            return null;
+        }
+
+        const results = await chrome.scripting.executeScript({
+            target: { tabId: tabId, frameIds: frameIds },
+            func: readPlayerState,
+            world: "MAIN"
+        });
+        const states = results.map((result) => result.result).filter((state) => state && state.videoId);
+
+        return states.find((state) => state.playing) || states.find((state) => state.started) || states[0] || null;
+    } catch (error) {
+        return null;
+    }
+}
+
+// Runs in an embed frame's main world. `#movie_player` is the player element; `getVideoData` is
+// the IFrame API's view of what's loaded right now.
+function readPlayerState() {
+    const player = document.getElementById("movie_player");
+    const data = player && typeof player.getVideoData === "function" ? player.getVideoData() : null;
+    const video = document.querySelector("video");
+
+    if (!data || !data.video_id) {
+        return null;
+    }
+
+    return {
+        videoId: data.video_id,
+        title: data.title || "",
+        playing: !!video && !video.paused && !video.ended,
+        started: !!video && video.currentTime > 0
+    };
 }
 
 async function resolveCurrentVideoId(tabId, pageGuess) {

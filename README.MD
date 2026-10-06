@@ -30,6 +30,14 @@
 
 - If dinhscogvery can't be reached, the page is left exactly as it is rather than half-filtered.
 
+#### YouTube
+
+- On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise like `(Official Video)` or `[HD]` stripped; a title with no ` - ` gets the channel name in front as the artist.
+
+- `l` likes the video. It only ever likes — pressing it on a video you've already liked says so rather than unliking it.
+
+- Both override YouTube's own shortcuts on video pages (`l` is normally seek forward 10s). Keys are ignored while typing in a field or with a modifier held.
+
 - Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
 
 - Serve terminates TLS and proxies to `127.0.0.1:8000`, so dinhscogvery stays bound to localhost — nothing needs to listen on port 8000 across interfaces, and nothing is exposed to the LAN. Check it with `tailscale serve status`; re-add it with `tailscale serve --bg 8000`.

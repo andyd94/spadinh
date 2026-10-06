@@ -2,10 +2,7 @@
 // parks it on / takes it off the Revisit list. The API calls go through the service worker.
 
 const DCV_KEYS = { p: "pass", r: "revisit" };
-const DCV_TOAST_ID = "spadinh-dcv-toast";
-const DCV_TOAST_MS = 2500;
 
-let dcvToastTimer = null;
 let dcvKeyBusy = false;
 
 dcvKeysInit();
@@ -37,16 +34,6 @@ function dcvReleaseIdFromPage() {
     return hrefMatch ? parseInt(hrefMatch[1], 10) : null;
 }
 
-function dcvIsTypingTarget(target) {
-    if (!(target instanceof HTMLElement)) {
-        return false;
-    }
-
-    const tag = target.tagName.toLowerCase();
-
-    return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
-}
-
 function dcvOnKeyDown(event) {
     // Same rules as dinhscogvery's keymap: one press per key held, no modifier chords (so ⌘R
     // reload doesn't count as `r`), and nothing while typing.
@@ -54,7 +41,7 @@ function dcvOnKeyDown(event) {
         return;
     }
 
-    if (dcvIsTypingTarget(event.target)) {
+    if (spadinhIsTypingTarget(event.target)) {
         return;
     }
 
@@ -71,46 +58,16 @@ function dcvOnKeyDown(event) {
     }
 
     dcvKeyBusy = true;
-    dcvShowToast(command === "pass" ? "passing…" : "revisit…");
+    spadinhShowToast(command === "pass" ? "passing…" : "revisit…");
 
     chrome.runtime.sendMessage({ action: "dcv", command: command, releaseId: releaseId }, (response) => {
         dcvKeyBusy = false;
 
         if (chrome.runtime.lastError || !response) {
-            dcvShowToast("spadinh: no reply from the extension - try reloading it");
+            spadinhShowToast("spadinh: no reply from the extension - try reloading it");
             return;
         }
 
-        dcvShowToast(response.text);
+        spadinhShowToast(response.text);
     });
-}
-
-function dcvShowToast(text) {
-    let toast = document.getElementById(DCV_TOAST_ID);
-
-    if (!toast) {
-        toast = document.createElement("div");
-        toast.id = DCV_TOAST_ID;
-        toast.style.cssText = [
-            "position: fixed",
-            "right: 16px",
-            "bottom: 16px",
-            "z-index: 2147483647",
-            "padding: 10px 14px",
-            "border-radius: 8px",
-            "background: #2d3748",
-            "color: #e2e8f0",
-            "font: 600 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-            "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4)",
-            "transition: opacity 0.2s ease",
-            "pointer-events: none"
-        ].join("; ");
-        document.body.appendChild(toast);
-    }
-
-    toast.textContent = text;
-    toast.style.opacity = "1";
-
-    clearTimeout(dcvToastTimer);
-    dcvToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, DCV_TOAST_MS);
 }

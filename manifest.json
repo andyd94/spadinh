@@ -21,11 +21,16 @@
     {
       "matches": ["https://*.discogs.com/*", "http://*.discogs.com/*"],
       "js": [
+        "scripts/_shared.js",
         "scripts/_global.js",
         "scripts/ratio-filter.js",
         "scripts/dinhscogvery-keys.js",
         "scripts/dinhscogvery-marks.js"
       ]
+    },
+    {
+      "matches": ["https://*.youtube.com/*"],
+      "js": ["scripts/_shared.js", "scripts/youtube-keys.js"]
     }
   ]
 }

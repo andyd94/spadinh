@@ -1,8 +1,8 @@
-// Discogs release/master pages: `a` likes the video playing in the embedded player — on YouTube
-// itself, since the embed has no like button. The service worker opens the watch page in a
-// background tab, likes it there and closes it; progress and the result come back as toasts.
+// Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `s`
+// searches Google for it as "artist - track". Both go through the service worker, which asks the
+// player frame what's actually loaded; progress and results come back here as toasts.
 
-const DISCOGS_VIDEO_KEYS = { a: discogsLikePlayingVideo };
+const DISCOGS_VIDEO_KEYS = { a: discogsLikePlayingVideo, s: discogsSearchPlayingVideo };
 
 discogsVideoKeysInit();
 
@@ -12,7 +12,7 @@ function discogsVideoKeysInit() {
     // Sent by the service worker to every frame of this tab; this top-level script is the one
     // that shows it, so the toast lands on the page rather than inside the player iframe.
     chrome.runtime.onMessage.addListener((message) => {
-        if (message.action === "ytLikeResult") {
+        if (message.action === "spadinhToast") {
             spadinhShowToast(message.text);
         }
     });
@@ -55,8 +55,35 @@ function discogsVideoOnKeyDown(event) {
     }
 }
 
+// Same caveats as the id: the playing entry's title while it plays, else the mounted iframe's
+// `title` attribute, which names the first video loaded, not the current one.
+function discogsPlayingVideoTitle() {
+    const active = document.querySelector('button[class*="active_"] div[class*="title_"]');
+
+    if (active && active.textContent.trim()) {
+        return active.textContent.trim();
+    }
+
+    const iframe = document.querySelector('iframe[src*="/embed/"]');
+
+    return iframe && iframe.title ? iframe.title.trim() : "";
+}
+
+// The release heading is "Artist – Title"; its artist half stands in for a channel name when a
+// video title doesn't carry its own.
+function discogsReleaseArtist() {
+    const heading = document.querySelector("h1");
+    const match = heading ? heading.textContent.trim().match(/^(.+?)\s[–—-]\s/) : null;
+
+    return match ? match[1].trim() : "";
+}
+
 // Sent even when this page can't tell: the service worker asks the embed frame first, and it's the
 // one that says "no video" if nothing answers.
 function discogsLikePlayingVideo() {
     spadinhRequestYtLike(discogsPlayingVideoId());
+}
+
+function discogsSearchPlayingVideo() {
+    spadinhSend({ action: "ytSearch", title: discogsPlayingVideoTitle(), artist: discogsReleaseArtist() });
 }

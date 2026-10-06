@@ -1,3 +1,6 @@
+// The query builder shared with the content scripts; nothing else in there runs at load.
+importScripts("_shared.js");
+
 // Service worker: every dinhscogvery API call lives here. Both the popup and the content script
 // on discogs.com send it messages rather than fetching themselves — a content script's fetch is
 // subject to Discogs' origin (CORS), while the extension origin is covered by host_permissions.
@@ -271,10 +274,11 @@ function describeDcvError(error) {
 
 // --- Liking a Discogs-embedded video on YouTube -------------------------------------------------
 //
-// An embedded player has no like button, so a like asked for from a Discogs page means opening
-// the video on youtube.com. That happens in a background tab (the user stays on Discogs), where
-// youtube-keys.js presses like and reports back, and the tab is closed again either way. Progress
-// and the result go to the originating tab as `ytLikeResult` messages, which the Discogs script
+// An embedded player has no like button. The embed frame can still like in place by replaying the
+// button's own internal request (`likeInEmbedFrame`); when it can't, the video is opened on
+// youtube.com in a background tab (the user stays on Discogs), where youtube-keys.js presses like
+// and reports back, and the tab is closed again either way. Progress
+// and the result go to the originating tab as `spadinhToast` messages, which the Discogs script
 // shows as toasts — the request can come from the embed iframe, whose own toast would be stuck
 // inside the player.
 
@@ -304,45 +308,108 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 throw new Error("no video playing on this page");
             }
 
-            notifyYtLikeResult(originTabId, "liking on YouTube…");
-            return likeOnYouTube(videoId);
+            notifyPage(originTabId, "liking on YouTube…");
+
+            return likeInEmbedFrame(originTabId, videoId).catch((error) => {
+                notifyPage(originTabId, "player couldn't like (" + error.message + ") - trying a watch page…");
+                return likeOnYouTube(videoId);
+            });
         })
-        .then((text) => notifyYtLikeResult(originTabId, text))
-        .catch((error) => notifyYtLikeResult(originTabId, error.message))
+        .then((text) => notifyPage(originTabId, text))
+        .catch((error) => notifyPage(originTabId, error.message))
         .finally(() => ytLikesInFlight.delete(originTabId));
 
     sendResponse({ ok: true });
     return false;
 });
 
-// The embed frame knows which video is actually loaded (youtube-embed-keys.js answers
-// `ytCurrentVideoId`); the page around it only has a guess, so that's the fallback. The message
-// goes to every frame of the tab, and only the embed frame answers it.
-async function resolveCurrentVideoId(tabId, pageGuess) {
+// The embed frame knows which video is actually loaded, and its title (youtube-embed-keys.js
+// answers `ytCurrentVideoId`); the page around it only has a guess. The message goes to every
+// frame of the tab, and only the embed frame answers it — `null` when none does: no embed
+// mounted, or a page without our scripts.
+async function askEmbedFrame(tabId) {
     if (tabId === null) {
-        return pageGuess;
+        return null;
     }
 
     try {
         const answer = await chrome.tabs.sendMessage(tabId, { action: "ytCurrentVideoId" });
 
-        if (answer && answer.videoId) {
-            return answer.videoId;
-        }
+        return answer && answer.videoId ? answer : null;
     } catch (error) {
-        // No frame answered — no embed mounted, or it's a page without our scripts.
+        return null;
     }
-
-    return pageGuess;
 }
 
-function notifyYtLikeResult(tabId, text) {
+async function resolveCurrentVideoId(tabId, pageGuess) {
+    const embed = await askEmbedFrame(tabId);
+
+    return embed ? embed.videoId : pageGuess;
+}
+
+// `s` on a Discogs page or in its player: a Google search for the loaded video as "artist - track",
+// opened from here so an iframe never has to open a popup itself.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "ytSearch") {
+        return false;
+    }
+
+    const originTabId = sender.tab ? sender.tab.id : null;
+
+    askEmbedFrame(originTabId)
+        .then((embed) => {
+            const title = (embed && embed.title) || message.title || "";
+            const query = spadinhSearchQuery(title, message.artist || "");
+
+            if (!query) {
+                notifyPage(originTabId, "no video playing on this page");
+                return;
+            }
+
+            notifyPage(originTabId, "searching: " + query);
+            return chrome.tabs.create({ url: "https://www.google.com/search?q=" + encodeURIComponent(query) });
+        })
+        .catch((error) => notifyPage(originTabId, error.message));
+
+    sendResponse({ ok: true });
+    return false;
+});
+
+function notifyPage(tabId, text) {
     if (tabId === null) {
         return;
     }
 
     // Goes to every frame of the tab; only the top-level Discogs script listens for it.
-    chrome.tabs.sendMessage(tabId, { action: "ytLikeResult", text: text }).catch(() => {});
+    chrome.tabs.sendMessage(tabId, { action: "spadinhToast", text: text }).catch(() => {});
+}
+
+// The embed frame can like in place (youtube-embed-keys.js, `ytLikeInFrame`): a youtube.com origin
+// with the user's cookies, no tab involved. Anything short of a clear success — no player frame
+// mounted, signed out in the frame, YouTube rejecting the undocumented request — is thrown, and
+// the caller takes the watch-page route instead.
+async function likeInEmbedFrame(tabId, videoId) {
+    if (tabId === null) {
+        throw new Error("no page to ask");
+    }
+
+    let answer;
+
+    try {
+        answer = await chrome.tabs.sendMessage(tabId, { action: "ytLikeInFrame", videoId: videoId });
+    } catch (error) {
+        throw new Error("no player frame");
+    }
+
+    if (!answer) {
+        throw new Error("no player frame");
+    }
+
+    if (!answer.ok) {
+        throw new Error(answer.text);
+    }
+
+    return "liked on YouTube: " + (answer.title || videoId);
 }
 
 async function likeOnYouTube(videoId) {

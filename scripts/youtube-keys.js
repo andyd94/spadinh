@@ -2,10 +2,6 @@
 
 const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo };
 
-// Upload-title noise that isn't part of the track name. Deliberately narrow: "(Original Mix)",
-// "(Remix)", "(Dub)" and the like *are* the track name and must survive.
-const YT_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:video|audio))?|lyrics?\s+video|visuali[sz]er|hd|hq|4k|1080p|720p)[)\]]/gi;
-
 ytKeysInit();
 
 function ytKeysInit() {
@@ -50,24 +46,8 @@ function ytChannelName() {
     return element ? element.textContent.trim() : "";
 }
 
-// "artist - track" straight from the title when it already has that shape, which is the norm for
-// record rips; otherwise the channel stands in for the artist.
-function ytSearchQuery(title, channel) {
-    const cleaned = title.replace(YT_TITLE_NOISE, " ").replace(/\s+/g, " ").trim();
-
-    if (!cleaned) {
-        return "";
-    }
-
-    if (/\s[-–—]\s/.test(cleaned) || !channel) {
-        return cleaned;
-    }
-
-    return channel + " - " + cleaned;
-}
-
 function ytSearchVideo() {
-    const query = ytSearchQuery(ytVideoTitle(), ytChannelName());
+    const query = spadinhSearchQuery(ytVideoTitle(), ytChannelName());
 
     if (!query) {
         spadinhShowToast("couldn't read the video title");

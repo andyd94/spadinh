@@ -38,7 +38,9 @@
 
 - Neither key clashes with YouTube's own shortcuts. Keys are ignored while typing in a field or with a modifier held.
 
-- On a Discogs release page, `a` likes the video playing in the embedded player. The embed has no like button, so the extension opens the video on YouTube in a background tab, likes it there and closes the tab again — you stay on Discogs, and a toast reports the result. It works whether the page or the player has keyboard focus. You need to be signed in to YouTube in that browser; otherwise the toast says the like didn't register.
+- On a Discogs release page, `a` likes the video playing in the embedded player, without leaving the page. The embed has no like button, so the extension sends the like button's own internal request from inside the player frame, using your YouTube session. That request is undocumented, so if YouTube ever rejects it — or you're signed out in the player, which happens when third-party cookies are blocked — the extension falls back to opening the video on YouTube in a background tab, liking it there and closing the tab again. A toast reports which happened. It works whether the page or the player has keyboard focus.
+
+- On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
 
 - Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
 

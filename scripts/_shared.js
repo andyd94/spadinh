@@ -46,10 +46,30 @@ function spadinhShowToast(text) {
     spadinhToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, SPADINH_TOAST_MS);
 }
 
-// Asks the service worker to like `videoId` on YouTube (see background.js). Progress and the
-// outcome arrive separately as `ytLikeResult` messages; only a refusal is shown from here.
-function spadinhRequestYtLike(videoId) {
-    chrome.runtime.sendMessage({ action: "ytLike", videoId: videoId }, (response) => {
+// Upload-title noise that isn't part of the track name. Deliberately narrow: "(Original Mix)",
+// "(Remix)", "(Dub)" and the like *are* the track name and must survive.
+const SPADINH_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:video|audio))?|lyrics?\s+video|visuali[sz]er|hd|hq|4k|1080p|720p)[)\]]/gi;
+
+// "artist - track" straight from the title when it already has that shape, which is the norm for
+// record rips; otherwise `artist` (a channel name, or the Discogs release artist) stands in.
+function spadinhSearchQuery(title, artist) {
+    const cleaned = (title || "").replace(SPADINH_TITLE_NOISE, " ").replace(/\s+/g, " ").trim();
+
+    if (!cleaned) {
+        return "";
+    }
+
+    if (/\s[-–—]\s/.test(cleaned) || !artist) {
+        return cleaned;
+    }
+
+    return artist + " - " + cleaned;
+}
+
+// Sends a request to the service worker. Progress and outcomes arrive separately as
+// `spadinhToast` messages (shown by the top-level page script); only a refusal is shown from here.
+function spadinhSend(message) {
+    chrome.runtime.sendMessage(message, (response) => {
         if (chrome.runtime.lastError || !response) {
             spadinhShowToast("spadinh: no reply from the extension - try reloading it");
             return;
@@ -59,4 +79,8 @@ function spadinhRequestYtLike(videoId) {
             spadinhShowToast(response.text);
         }
     });
+}
+
+function spadinhRequestYtLike(videoId) {
+    spadinhSend({ action: "ytLike", videoId: videoId });
 }

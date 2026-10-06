@@ -1,6 +1,6 @@
-// YouTube watch pages: `s` searches Google for the playing video as "artist - track", `l` likes it.
+// YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it.
 
-const YT_KEYS = { s: ytSearchVideo, l: ytLikeVideo };
+const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo };
 
 // Upload-title noise that isn't part of the track name. Deliberately narrow: "(Original Mix)",
 // "(Remix)", "(Dub)" and the like *are* the track name and must survive.
@@ -9,8 +9,9 @@ const YT_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:video
 ytKeysInit();
 
 function ytKeysInit() {
-    // Capture phase, so this runs ahead of YouTube's own hotkey manager — which already binds
-    // `l` to "seek forward 10s" and would fire alongside ours otherwise.
+    // Capture phase, so this runs ahead of YouTube's own hotkey manager. Neither `s` nor `a` is a
+    // YouTube shortcut today (`l` was, which is why like moved off it), and stopping the event
+    // here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
 }
 
@@ -83,7 +84,7 @@ function ytLikeButton() {
     return document.querySelector('like-button-view-model button, button[aria-label^="like this video"]');
 }
 
-// Likes only — the button toggles, and `l` on an already-liked video shouldn't quietly unlike it.
+// Likes only — the button toggles, and `a` on an already-liked video shouldn't quietly unlike it.
 function ytLikeVideo() {
     const button = ytLikeButton();
 

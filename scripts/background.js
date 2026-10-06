@@ -268,3 +268,141 @@ function describeDcvError(error) {
     console.error(error);
     return "something went wrong - see the service worker console";
 }
+
+// --- Liking a Discogs-embedded video on YouTube -------------------------------------------------
+//
+// An embedded player has no like button, so a like asked for from a Discogs page means opening
+// the video on youtube.com. That happens in a background tab (the user stays on Discogs), where
+// youtube-keys.js presses like and reports back, and the tab is closed again either way. Progress
+// and the result go to the originating tab as `ytLikeResult` messages, which the Discogs script
+// shows as toasts — the request can come from the embed iframe, whose own toast would be stuck
+// inside the player.
+
+const YT_LIKE_LOAD_TIMEOUT_MS = 20 * 1000;
+const YT_LIKE_SEND_ATTEMPTS = 10;
+
+// Originating tab ids with a like in flight, so a second `a` while one is running does nothing.
+const ytLikesInFlight = new Set();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "ytLike") {
+        return false;
+    }
+
+    const originTabId = sender.tab ? sender.tab.id : null;
+
+    if (ytLikesInFlight.has(originTabId)) {
+        sendResponse({ ok: false, text: "already liking that one…" });
+        return false;
+    }
+
+    ytLikesInFlight.add(originTabId);
+
+    resolveCurrentVideoId(originTabId, message.videoId)
+        .then((videoId) => {
+            if (!videoId) {
+                throw new Error("no video playing on this page");
+            }
+
+            notifyYtLikeResult(originTabId, "liking on YouTube…");
+            return likeOnYouTube(videoId);
+        })
+        .then((text) => notifyYtLikeResult(originTabId, text))
+        .catch((error) => notifyYtLikeResult(originTabId, error.message))
+        .finally(() => ytLikesInFlight.delete(originTabId));
+
+    sendResponse({ ok: true });
+    return false;
+});
+
+// The embed frame knows which video is actually loaded (youtube-embed-keys.js answers
+// `ytCurrentVideoId`); the page around it only has a guess, so that's the fallback. The message
+// goes to every frame of the tab, and only the embed frame answers it.
+async function resolveCurrentVideoId(tabId, pageGuess) {
+    if (tabId === null) {
+        return pageGuess;
+    }
+
+    try {
+        const answer = await chrome.tabs.sendMessage(tabId, { action: "ytCurrentVideoId" });
+
+        if (answer && answer.videoId) {
+            return answer.videoId;
+        }
+    } catch (error) {
+        // No frame answered — no embed mounted, or it's a page without our scripts.
+    }
+
+    return pageGuess;
+}
+
+function notifyYtLikeResult(tabId, text) {
+    if (tabId === null) {
+        return;
+    }
+
+    // Goes to every frame of the tab; only the top-level Discogs script listens for it.
+    chrome.tabs.sendMessage(tabId, { action: "ytLikeResult", text: text }).catch(() => {});
+}
+
+async function likeOnYouTube(videoId) {
+    const tab = await chrome.tabs.create({ url: "https://www.youtube.com/watch?v=" + videoId, active: false });
+
+    try {
+        await waitForTabLoad(tab.id);
+
+        const response = await sendToTabWithRetry(tab.id, { action: "ytAutoLike" });
+
+        if (!response || !response.ok) {
+            throw new Error(response ? response.text : "no reply from the YouTube tab");
+        }
+
+        return response.text;
+    } finally {
+        chrome.tabs.remove(tab.id).catch(() => {});
+    }
+}
+
+function waitForTabLoad(tabId) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(onUpdated);
+            reject(new Error("YouTube took too long to load"));
+        }, YT_LIKE_LOAD_TIMEOUT_MS);
+
+        function done() {
+            clearTimeout(timer);
+            chrome.tabs.onUpdated.removeListener(onUpdated);
+            resolve();
+        }
+
+        function onUpdated(updatedTabId, info) {
+            if (updatedTabId === tabId && info.status === "complete") {
+                done();
+            }
+        }
+
+        chrome.tabs.onUpdated.addListener(onUpdated);
+
+        // In case the load finished before the listener went on.
+        chrome.tabs.get(tabId).then((current) => {
+            if (current.status === "complete") {
+                done();
+            }
+        }).catch(() => {});
+    });
+}
+
+// The content script lands at document_idle, which can trail the tab's "complete" status by a
+// beat; a send before it's there rejects, so try again rather than give up.
+async function sendToTabWithRetry(tabId, message) {
+    for (let attempt = 0; attempt < YT_LIKE_SEND_ATTEMPTS; attempt++) {
+        try {
+            return await chrome.tabs.sendMessage(tabId, message);
+        } catch (error) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+    }
+
+    throw new Error("the YouTube tab never answered");
+}

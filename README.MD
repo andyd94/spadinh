@@ -38,6 +38,8 @@
 
 - Neither key clashes with YouTube's own shortcuts. Keys are ignored while typing in a field or with a modifier held.
 
+- On a Discogs release page, `a` likes the video playing in the embedded player. The embed has no like button, so the extension opens the video on YouTube in a background tab, likes it there and closes the tab again — you stay on Discogs, and a toast reports the result. It works whether the page or the player has keyboard focus. You need to be signed in to YouTube in that browser; otherwise the toast says the like didn't register.
+
 - Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
 
 - Serve terminates TLS and proxies to `127.0.0.1:8000`, so dinhscogvery stays bound to localhost — nothing needs to listen on port 8000 across interfaces, and nothing is exposed to the LAN. Check it with `tailscale serve status`; re-add it with `tailscale serve --bg 8000`.

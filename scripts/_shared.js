@@ -45,3 +45,18 @@ function spadinhShowToast(text) {
     clearTimeout(spadinhToastTimer);
     spadinhToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, SPADINH_TOAST_MS);
 }
+
+// Asks the service worker to like `videoId` on YouTube (see background.js). Progress and the
+// outcome arrive separately as `ytLikeResult` messages; only a refusal is shown from here.
+function spadinhRequestYtLike(videoId) {
+    chrome.runtime.sendMessage({ action: "ytLike", videoId: videoId }, (response) => {
+        if (chrome.runtime.lastError || !response) {
+            spadinhShowToast("spadinh: no reply from the extension - try reloading it");
+            return;
+        }
+
+        if (!response.ok) {
+            spadinhShowToast(response.text);
+        }
+    });
+}

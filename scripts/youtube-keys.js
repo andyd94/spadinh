@@ -101,3 +101,84 @@ function ytLikeVideo() {
     button.click();
     spadinhShowToast("liked");
 }
+
+// --- Likes asked for from Discogs ----------------------------------------------------------------
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "ytAutoLike") {
+        return false;
+    }
+
+    ytAutoLike()
+        .then((text) => sendResponse({ ok: true, text: text }))
+        .catch((error) => sendResponse({ ok: false, text: error.message }));
+
+    return true;
+});
+
+// This tab was opened in the background by the service worker for a like requested on Discogs.
+// The watch page autoplays, which would play over whatever Discogs is playing, so the player is
+// kept muted and paused for the few seconds the tab exists. The like is only reported once the
+// button actually shows pressed — a click while signed out opens a sign-in prompt instead.
+async function ytAutoLike() {
+    const keepQuiet = setInterval(ytSilenceVideo, 250);
+
+    ytSilenceVideo();
+
+    try {
+        if (!await ytWaitFor(ytLikeButton, 10 * 1000)) {
+            throw new Error("couldn't find the like button on YouTube");
+        }
+
+        if (ytLikeButton().getAttribute("aria-pressed") === "true") {
+            return "already liked on YouTube: " + ytVideoTitle();
+        }
+
+        ytLikeButton().click();
+
+        const stuck = await ytWaitFor(() => {
+            const button = ytLikeButton();
+            return button && button.getAttribute("aria-pressed") === "true" ? button : null;
+        }, 3 * 1000);
+
+        if (!stuck) {
+            throw new Error("like didn't register - signed in to YouTube in this browser?");
+        }
+
+        return "liked on YouTube: " + ytVideoTitle();
+    } finally {
+        clearInterval(keepQuiet);
+    }
+}
+
+function ytSilenceVideo() {
+    const video = document.querySelector("video");
+
+    if (video) {
+        video.muted = true;
+
+        if (!video.paused) {
+            video.pause();
+        }
+    }
+}
+
+// Polls `probe` until it returns something truthy, or `null` after `timeoutMs`. Background tabs
+// throttle timers to about once a second, which is fine at these timeouts.
+function ytWaitFor(probe, timeoutMs) {
+    return new Promise((resolve) => {
+        const started = Date.now();
+
+        (function poll() {
+            const result = probe();
+
+            if (result) {
+                resolve(result);
+            } else if (Date.now() - started > timeoutMs) {
+                resolve(null);
+            } else {
+                setTimeout(poll, 200);
+            }
+        })();
+    });
+}

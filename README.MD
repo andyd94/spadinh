@@ -10,11 +10,19 @@
 
 #### Ratio Filter
 
-- The "auto" checkbox beside the ratio input will determine whether this filter will automatically run on page load.
+- On a seller page, **Filter** removes every listing whose want/have ratio (the two community numbers on the listing) is below the ratio in the popup. The ratio defaults to 0.75 and is remembered.
+
+- The "auto" checkbox beside the ratio input will determine whether this filter will automatically run on page load and on paging.
 
 - Alternatively you can press Ctrl + Shift to trigger this action.
 
 - The record count text will update to reflect the new number of results on the page.
+
+- **Avoid Labels** and **Avoid Artists** are comma-separated lists; listings by any of them are removed at the same time as the ratio filter runs. The artist is the part of the listing title before ` - `, the label is as shown on the listing (minus its `(n)` suffix); both are matched whole, ignoring case, with no spaces after the commas.
+
+- **Browse All** opens every listing left on the page in its own tab.
+
+- **Instrumentals** reloads the current Discogs search with the query set to `instrumental|dubstrumental|dubstramenal|dub&`, i.e. instrumental and dub mixes (and the usual misspellings).
 
 #### Dinhscogvery
 
@@ -30,6 +38,10 @@
 
 - If dinhscogvery can't be reached, the page is left exactly as it is rather than half-filtered.
 
+- Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
+
+- Serve terminates TLS and proxies to `127.0.0.1:8000`, so dinhscogvery stays bound to localhost — nothing needs to listen on port 8000 across interfaces, and nothing is exposed to the LAN. Check it with `tailscale serve status`; re-add it with `tailscale serve --bg 8000`.
+
 #### YouTube
 
 - On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise like `(Official Video)` or `[HD]` stripped; a title with no ` - ` gets the channel name in front as the artist.
@@ -41,7 +53,3 @@
 - On a Discogs release page, `a` likes the video playing in the embedded player, without leaving the page. The embed has no like button, so the extension sends the like button's own internal request from inside the player frame, using your YouTube session. That request is undocumented, so if YouTube ever rejects it — or you're signed out in the player, which happens when third-party cookies are blocked — the extension falls back to opening the video on YouTube in a background tab, liking it there and closing the tab again. A toast reports which happened. It works whether the page or the player has keyboard focus.
 
 - On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
-
-- Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
-
-- Serve terminates TLS and proxies to `127.0.0.1:8000`, so dinhscogvery stays bound to localhost — nothing needs to listen on port 8000 across interfaces, and nothing is exposed to the LAN. Check it with `tailscale serve status`; re-add it with `tailscale serve --bg 8000`.

@@ -392,6 +392,63 @@ function readPlayerState() {
     };
 }
 
+// --- Searching SoulseekQt --------------------------------------------------------------------------
+//
+// Shift+A on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
+// query as `s`, typed into SoulseekQt's search box. SoulseekQt has no API, so Chrome hands the
+// query to the native host in native/ (registered by native/install.sh), which drives the app's
+// search field through macOS accessibility and reports back.
+
+const SLSK_HOST = "com.spadinh.soulseek";
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "slskSearch") {
+        return false;
+    }
+
+    const originTabId = sender.tab ? sender.tab.id : null;
+
+    askEmbedFrame(originTabId)
+        .then((embed) => {
+            const title = (embed && embed.title) || message.title || "";
+            const query = spadinhSearchQuery(title, message.artist || "");
+
+            if (!query) {
+                notifyPage(originTabId, "no video playing on this page");
+                return;
+            }
+
+            notifyPage(originTabId, "soulseek: " + query + "…");
+
+            return searchInSoulseek(query).then((text) => notifyPage(originTabId, text));
+        })
+        .catch((error) => notifyPage(originTabId, error.message));
+
+    sendResponse({ ok: true });
+    return false;
+});
+
+// `lastError` here nearly always means the host isn't registered for this extension id, or the
+// registration points at a path that's moved — both fixed by re-running native/install.sh.
+function searchInSoulseek(query) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendNativeMessage(SLSK_HOST, { query: query }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error("can't reach the Soulseek bridge (" + chrome.runtime.lastError.message +
+                    ") - run native/install.sh"));
+                return;
+            }
+
+            if (!response || !response.ok) {
+                reject(new Error(response && response.text ? response.text : "no reply from the Soulseek bridge"));
+                return;
+            }
+
+            resolve(response.text);
+        });
+    });
+}
+
 async function resolveCurrentVideoId(tabId, pageGuess) {
     const embed = await askEmbedFrame(tabId);
 

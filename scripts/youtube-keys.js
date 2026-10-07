@@ -1,18 +1,26 @@
-// YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it.
+// YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it,
+// `Shift+A` searches SoulseekQt for it.
 
 const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo };
 
 ytKeysInit();
 
 function ytKeysInit() {
-    // Capture phase, so this runs ahead of YouTube's own hotkey manager. Neither `s` nor `a` is a
-    // YouTube shortcut today (`l` was, which is why like moved off it), and stopping the event
-    // here keeps it that way if YouTube ever binds one of them.
+    // Capture phase, so this runs ahead of YouTube's own hotkey manager. Neither `s`, `a` nor
+    // `Shift+A` is a YouTube shortcut today (`l` was, which is why like moved off it), and
+    // stopping the event here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
+
+    // Results of a Soulseek search come back from the service worker as toasts.
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.action === "spadinhToast") {
+            spadinhShowToast(message.text);
+        }
+    });
 }
 
 function ytOnKeyDown(event) {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
         return;
     }
 
@@ -20,7 +28,7 @@ function ytOnKeyDown(event) {
         return;
     }
 
-    const action = YT_KEYS[event.key];
+    const action = spadinhIsSoulseekChord(event) ? ytSoulseekVideo : (event.shiftKey ? null : YT_KEYS[event.key]);
 
     if (!action || window.location.pathname !== "/watch") {
         return;
@@ -56,6 +64,10 @@ function ytSearchVideo() {
 
     window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
     spadinhShowToast("searching: " + query);
+}
+
+function ytSoulseekVideo() {
+    spadinhRequestSoulseekSearch(ytVideoTitle(), ytChannelName());
 }
 
 // `like-button-view-model` is the like half of the segmented like/dislike control; the aria-label

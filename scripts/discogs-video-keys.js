@@ -1,6 +1,7 @@
 // Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `s`
-// searches Google for it as "artist - track". Both go through the service worker, which asks the
-// player frame what's actually loaded; progress and results come back here as toasts.
+// searches Google for it as "artist - track", `Shift+A` searches SoulseekQt for the same. All go
+// through the service worker, which asks the player frame what's actually loaded; progress and
+// results come back here as toasts.
 
 const DISCOGS_VIDEO_KEYS = { a: discogsLikePlayingVideo, s: discogsSearchPlayingVideo };
 
@@ -40,11 +41,20 @@ function discogsPlayingVideoId() {
 }
 
 function discogsVideoOnKeyDown(event) {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
         return;
     }
 
     if (spadinhIsTypingTarget(event.target)) {
+        return;
+    }
+
+    if (spadinhIsSoulseekChord(event)) {
+        discogsSoulseekPlayingVideo();
+        return;
+    }
+
+    if (event.shiftKey) {
         return;
     }
 
@@ -86,4 +96,8 @@ function discogsLikePlayingVideo() {
 
 function discogsSearchPlayingVideo() {
     spadinhSend({ action: "ytSearch", title: discogsPlayingVideoTitle(), artist: discogsReleaseArtist() });
+}
+
+function discogsSoulseekPlayingVideo() {
+    spadinhRequestSoulseekSearch(discogsPlayingVideoTitle(), discogsReleaseArtist());
 }

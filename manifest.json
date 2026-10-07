@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Spadinh",
   "description": "ch00nz",
-  "permissions": ["activeTab", "tabs", "scripting", "storage", "webNavigation"],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyoweKOgITxcEUBpyJPXnm3C7aY6duxAWZBP+qnvnoB5nfZOygNc0Rqy6zhKx3tpY5F0MJfOFe7oV6j0x98ZP0E9AG4O9/r8t8cCZsLahmTzgANtJLIH+NvdFc5if2jO0Qx5jidOVE8OxJ4sKvkqoPSpL8+7VjpObF8I9UTbB8Ar2S7CDhb2vOm8qnwWRu85Ia80+S3bg85LpYoHsoGcDuvf9Fxf+BBjuWZI18JtmFqERJKG6B/Xt8K8A/4of2wcS3AD1rqQ7f7xZypw8OOIfr2tBp+/OffjlJIUfRxtPl6HGVDg2mCMnFfF8setvnTyQkp2005n1y9KOoaYMRd17OQIDAQAB",
+  "permissions": ["activeTab", "tabs", "scripting", "storage", "webNavigation", "nativeMessaging"],
   "host_permissions": ["<all_urls>"],
   "version": "1.0",
   "action": {

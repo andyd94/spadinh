@@ -53,3 +53,15 @@
 - On a Discogs release page, `a` likes the video playing in the embedded player, without leaving the page. The embed has no like button, so the extension sends the like button's own internal request from inside the player frame, using your YouTube session. That request is undocumented, so if YouTube ever rejects it — or you're signed out in the player, which happens when third-party cookies are blocked — the extension falls back to opening the video on YouTube in a background tab, liking it there and closing the tab again. A toast reports which happened. It works whether the page or the player has keyboard focus.
 
 - On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
+
+#### Soulseek
+
+- `Shift+A` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` (minus the ` - `, which Soulseek would read as "exclude"). SoulseekQt comes to the front with the results tab open. A toast on the page reports what was searched, or why it couldn't be.
+
+- SoulseekQt has no API, so the extension hands the query to a small helper (`native/soulseek-search.py`) that Chrome is allowed to launch; it types into SoulseekQt's search box and presses Search through macOS accessibility. One-time setup on each Mac:
+
+  1) Run `native/install.sh` from the extension folder (no sudo). It registers the helper with Chrome, Chromium and Brave for this checkout's location — re-run it if the folder moves.
+  2) Reload the extension in `chrome://extensions`. Its id should read `onhlmcgjfnopeojjoocnmneahejhhlmh` (fixed by the `key` in the manifest, so it's the same everywhere).
+  3) Press `Shift+A` once; macOS asks to let Google Chrome control the computer. Allow it under System Settings → Privacy & Security → Accessibility, then press `Shift+A` again.
+
+- If the toast says it can't reach the Soulseek bridge, step 1 hasn't been run on this Mac, or the folder has moved since.

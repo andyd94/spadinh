@@ -62,11 +62,20 @@ function ytEmbedVideoTitle() {
 }
 
 function ytEmbedOnKeyDown(event) {
-    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+    if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) {
         return;
     }
 
     if (spadinhIsTypingTarget(event.target)) {
+        return;
+    }
+
+    if (spadinhIsSoulseekChord(event)) {
+        ytEmbedSoulseek();
+        return;
+    }
+
+    if (event.shiftKey) {
         return;
     }
 
@@ -91,6 +100,11 @@ function ytEmbedLike() {
 // the "searching: …" toast lands on the page around the player.
 function ytEmbedSearch() {
     spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "" });
+}
+
+// Shift+A: the same query, in SoulseekQt. The service worker asks this frame for the title anyway.
+function ytEmbedSoulseek() {
+    spadinhRequestSoulseekSearch(ytEmbedVideoTitle(), "");
 }
 
 // --- The like button's own request, replayed ---------------------------------------------------

@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# editors
+.idea/
+.vscode/
+
+# python (native/ host)
+__pycache__/
+*.pyc

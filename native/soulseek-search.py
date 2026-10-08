@@ -22,10 +22,11 @@ import sys
 OSASCRIPT_TIMEOUT_S = 30
 
 
-# `-word` excludes `word` in Soulseek's query syntax, so the " - " between artist and track goes.
-# Everything else is left alone: the user may well refine it in SoulseekQt's own box.
+# Soulseek matches the query's words against filenames, so punctuation only ever gets in the way:
+# "Klang & Spallek" wouldn't find "Klang and Spallek", and "-word" means exclude. Everything that
+# isn't a letter, digit or space goes; "(Soultek Mix)" still finds "(Soultek Mix)" as two words.
 def soulseek_terms(query):
-    return re.sub(r"\s+[-–—]\s+", " ", query).strip()
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]|_", " ", query)).strip()
 
 
 SCRIPT = r'''

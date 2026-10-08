@@ -58,7 +58,7 @@
 
 #### Soulseek
 
-- `Shift+S` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` (minus the ` - `, which Soulseek would read as "exclude"). SoulseekQt comes to the front, switched to Search → Manual Searches if it was on another tab, with the results tab open. A toast on the page reports what was searched, or why it couldn't be.
+- `Shift+S` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` with all punctuation removed (`Klang & Spallek - Track (Mix)` goes in as `Klang Spallek Track Mix`): Soulseek matches words against filenames, and reads `-word` as "exclude". SoulseekQt comes to the front, switched to Search → Manual Searches if it was on another tab, with the results tab open. A toast on the page reports what was searched, or why it couldn't be.
 
 - SoulseekQt has no API, so the extension hands the query to a small helper (`native/soulseek-search.py`) that Chrome is allowed to launch; it types into SoulseekQt's search box and presses Search through macOS accessibility. macOS only; it uses the built-in `osascript` and Apple's `/usr/bin/python3`, which needs the Xcode Command Line Tools installed (`xcode-select --install` if `python3 --version` prompts for them). One-time setup on each Mac:
 

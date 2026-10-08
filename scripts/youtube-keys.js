@@ -1,5 +1,5 @@
 // YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it,
-// `Shift+A` searches SoulseekQt for it.
+// `Shift+S` searches SoulseekQt for it.
 
 const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo };
 
@@ -7,7 +7,7 @@ ytKeysInit();
 
 function ytKeysInit() {
     // Capture phase, so this runs ahead of YouTube's own hotkey manager. Neither `s`, `a` nor
-    // `Shift+A` is a YouTube shortcut today (`l` was, which is why like moved off it), and
+    // `Shift+S` is a YouTube shortcut today (`l` was, which is why like moved off it), and
     // stopping the event here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
 

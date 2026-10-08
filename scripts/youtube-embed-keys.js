@@ -110,7 +110,7 @@ function ytEmbedSearch() {
     spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
-// Shift+A: the same query, in SoulseekQt. The service worker asks this frame for the title anyway.
+// Shift+S: the same query, in SoulseekQt. The service worker asks this frame for the title anyway.
 function ytEmbedSoulseek() {
     spadinhSend({ action: "slskSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }

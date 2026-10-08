@@ -110,7 +110,7 @@ def describe_failure(stderr):
 
     if "assistive access" in text or "-1719" in text or "-25211" in text:
         return ("macOS won't let Chrome control SoulseekQt yet - allow Google Chrome under "
-                "System Settings > Privacy & Security > Accessibility, then press Shift+A again")
+                "System Settings > Privacy & Security > Accessibility, then press Shift+S again")
 
     if "-1743" in text or "not permitted" in text.lower():
         return ("macOS blocked Chrome from automating SoulseekQt - allow it under "

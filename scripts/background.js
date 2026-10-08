@@ -394,7 +394,7 @@ function readPlayerState() {
 
 // --- Searching SoulseekQt --------------------------------------------------------------------------
 //
-// Shift+A on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
+// Shift+S on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
 // query as `s`, typed into SoulseekQt's search box. SoulseekQt has no API, so Chrome hands the
 // query to the native host in native/ (registered by native/install.sh), which drives the app's
 // search field through macOS accessibility and reports back.
@@ -477,7 +477,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// What `s` and Shift+A search for. A playing video wins; otherwise text highlighted on the page,
+// What `s` and Shift+S search for. A playing video wins; otherwise text highlighted on the page,
 // so a tracklist line can be searched without playing it; otherwise whatever video is loaded
 // (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
 // see into: YouTube watch pages, and the embed frame answering for itself.

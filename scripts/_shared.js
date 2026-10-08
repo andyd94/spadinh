@@ -111,10 +111,10 @@ function spadinhRequestYtLike(videoId) {
     spadinhSend({ action: "ytLike", videoId: videoId });
 }
 
-// Shift+A and nothing else held. With Shift down the key reports as "A", so the lowercase keymaps
+// Shift+S and nothing else held. With Shift down the key reports as "S", so the lowercase keymaps
 // never see it; the handlers check this before they rule out Shift.
 function spadinhIsSoulseekChord(event) {
-    return event.key === "A" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
+    return event.key === "S" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 
 // Same "artist - track" query as `s`, searched in SoulseekQt instead of Google (see background.js).

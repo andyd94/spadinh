@@ -41,5 +41,5 @@ fi
 
 echo
 echo "Now reload the extension in chrome://extensions. Its id should read $EXT_ID."
-echo "The first Shift+A will make macOS ask to let Google Chrome control your computer (Accessibility);"
-echo "allow it, then press Shift+A again."
+echo "The first Shift+S will make macOS ask to let Google Chrome control your computer (Accessibility);"
+echo "allow it, then press Shift+S again."

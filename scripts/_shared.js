@@ -50,6 +50,14 @@ function spadinhShowToast(text) {
 // "(Remix)", "(Dub)" and the like *are* the track name and must survive.
 const SPADINH_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:video|audio))?|lyrics?\s+video|visuali[sz]er|hd|hq|4k|1080p|720p)[)\]]/gi;
 
+// Square-bracketed tags are labels ("[Megaphone Records]"), catalogue numbers, years and quality
+// flags - never the track name - except the odd upload that brackets its mix name instead.
+const SPADINH_BRACKET_TAG = /\s*\[[^\]]*\]/g;
+const SPADINH_MIX_WORDS = /\b(?:mix|remix|dub|edit|re-?edit|version|instrumental|vocal|bootleg|rework|vip|refix|flip|cut|acapella|extended|radio|club|original)\b/i;
+
+// Round brackets naming the label rather than a mix: "(Megaphone Records)", "(Hotflush Recordings)".
+const SPADINH_LABEL_PARENS = /\s*\((?:[^()]*\s)?(?:records|recordings|recs?\.?|music|label)\)/gi;
+
 // "artist - track" straight from the title when it already has that shape, which is the norm for
 // record rips; otherwise `artist` (a channel name, or the Discogs release artist) stands in.
 // Discogs writes its dashes as en dashes (–); they come out as plain hyphens so the query reads
@@ -57,6 +65,8 @@ const SPADINH_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:
 function spadinhSearchQuery(title, artist) {
     const cleaned = (title || "")
         .replace(SPADINH_TITLE_NOISE, " ")
+        .replace(SPADINH_BRACKET_TAG, (tag) => (SPADINH_MIX_WORDS.test(tag) ? tag : " "))
+        .replace(SPADINH_LABEL_PARENS, " ")
         .replace(/[–—]/g, "-")
         .replace(/\s+/g, " ")
         .trim();

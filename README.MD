@@ -58,10 +58,10 @@
 
 - `Shift+A` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` (minus the ` - `, which Soulseek would read as "exclude"). SoulseekQt comes to the front with the results tab open. A toast on the page reports what was searched, or why it couldn't be.
 
-- SoulseekQt has no API, so the extension hands the query to a small helper (`native/soulseek-search.py`) that Chrome is allowed to launch; it types into SoulseekQt's search box and presses Search through macOS accessibility. One-time setup on each Mac:
+- SoulseekQt has no API, so the extension hands the query to a small helper (`native/soulseek-search.py`) that Chrome is allowed to launch; it types into SoulseekQt's search box and presses Search through macOS accessibility. macOS only; it uses the built-in `osascript` and Apple's `/usr/bin/python3`, which needs the Xcode Command Line Tools installed (`xcode-select --install` if `python3 --version` prompts for them). One-time setup on each Mac:
 
-  1) Run `native/install.sh` from the extension folder (no sudo). It registers the helper with Chrome, Chromium and Brave for this checkout's location — re-run it if the folder moves.
-  2) Reload the extension in `chrome://extensions`. Its id should read `onhlmcgjfnopeojjoocnmneahejhhlmh` (fixed by the `key` in the manifest, so it's the same everywhere).
-  3) Press `Shift+A` once; macOS asks to let Google Chrome control the computer. Allow it under System Settings → Privacy & Security → Accessibility, then press `Shift+A` again.
+  1) From the extension folder run `bash native/install.sh` (no sudo). It registers the helper with Chrome, Chromium and Brave for this checkout's location — re-run it if the folder moves.
+  2) In `chrome://extensions`, remove any existing Spadinh entry and **Load unpacked** the folder again: the `key` in the manifest fixes the id at `onhlmcgjfnopeojjoocnmneahejhhlmh` on every machine, and Chrome treats that as a new extension (the popup's saved settings reset once). On later updates a plain reload is enough.
+  3) Press `Shift+A` once; macOS asks to let Google Chrome control the computer. Allow it under System Settings → Privacy & Security → Accessibility (and, if asked, under Automation), then press `Shift+A` again.
 
-- If the toast says it can't reach the Soulseek bridge, step 1 hasn't been run on this Mac, or the folder has moved since.
+- If the toast says it can't reach the Soulseek bridge, step 1 hasn't been run on this Mac, or the folder has moved since. Any other failure is reported in the toast with the reason.

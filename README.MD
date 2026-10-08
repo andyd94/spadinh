@@ -54,6 +54,8 @@
 
 - On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
 
+- When nothing is playing, both `s` and `Shift+A` search for whatever text is highlighted on the page instead — highlight a tracklist line like `The Architect – Amber Waves` and press the key. A leading position (`A2 `) is dropped, and the release artist isn't added in front. A video that's loaded but paused is only searched when nothing is highlighted.
+
 #### Soulseek
 
 - `Shift+A` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` (minus the ` - `, which Soulseek would read as "exclude"). SoulseekQt comes to the front with the results tab open. A toast on the page reports what was searched, or why it couldn't be.

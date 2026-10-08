@@ -96,15 +96,23 @@ function ytEmbedLike() {
     }
 }
 
+// Whether this frame's video is actually playing: when it isn't, the service worker prefers text
+// highlighted on the page around the player.
+function ytEmbedIsPlaying() {
+    const video = document.querySelector("video");
+
+    return !!video && !video.paused && !video.ended;
+}
+
 // The service worker opens the search tab: no popup-blocker question from inside an iframe, and
 // the "searching: …" toast lands on the page around the player.
 function ytEmbedSearch() {
-    spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "" });
+    spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
 // Shift+A: the same query, in SoulseekQt. The service worker asks this frame for the title anyway.
 function ytEmbedSoulseek() {
-    spadinhRequestSoulseekSearch(ytEmbedVideoTitle(), "");
+    spadinhSend({ action: "slskSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
 // --- The like button's own request, replayed ---------------------------------------------------

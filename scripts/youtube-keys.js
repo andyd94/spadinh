@@ -54,8 +54,22 @@ function ytChannelName() {
     return element ? element.textContent.trim() : "";
 }
 
+function ytIsPlaying() {
+    const video = document.querySelector("video");
+
+    return !!video && !video.paused && !video.ended;
+}
+
+// Same precedence as the service worker's: the playing video, else highlighted text, else the
+// (paused) video.
+function ytSearchQuery() {
+    const selection = ytIsPlaying() ? "" : spadinhSelectionTerms(String(window.getSelection()));
+
+    return selection ? spadinhSearchQuery(selection, "") : spadinhSearchQuery(ytVideoTitle(), ytChannelName());
+}
+
 function ytSearchVideo() {
-    const query = spadinhSearchQuery(ytVideoTitle(), ytChannelName());
+    const query = ytSearchQuery();
 
     if (!query) {
         spadinhShowToast("couldn't read the video title");
@@ -67,7 +81,7 @@ function ytSearchVideo() {
 }
 
 function ytSoulseekVideo() {
-    spadinhRequestSoulseekSearch(ytVideoTitle(), ytChannelName());
+    spadinhSend({ action: "slskSearch", title: ytVideoTitle(), artist: ytChannelName(), playing: ytIsPlaying() });
 }
 
 // `like-button-view-model` is the like half of the segmented like/dislike control; the aria-label

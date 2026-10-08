@@ -408,13 +408,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    askEmbedFrame(originTabId)
-        .then((embed) => {
-            const title = (embed && embed.title) || message.title || "";
-            const query = spadinhSearchQuery(title, message.artist || "");
-
+    resolveSearchQuery(originTabId, message)
+        .then((query) => {
             if (!query) {
-                notifyPage(originTabId, "no video playing on this page");
+                notifyPage(originTabId, "nothing playing and nothing highlighted");
                 return;
             }
 
@@ -464,13 +461,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    askEmbedFrame(originTabId)
-        .then((embed) => {
-            const title = (embed && embed.title) || message.title || "";
-            const query = spadinhSearchQuery(title, message.artist || "");
-
+    resolveSearchQuery(originTabId, message)
+        .then((query) => {
             if (!query) {
-                notifyPage(originTabId, "no video playing on this page");
+                notifyPage(originTabId, "nothing playing and nothing highlighted");
                 return;
             }
 
@@ -482,6 +476,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
     return false;
 });
+
+// What `s` and Shift+A search for. A playing video wins; otherwise text highlighted on the page,
+// so a tracklist line can be searched without playing it; otherwise whatever video is loaded
+// (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
+// see into: YouTube watch pages, and the embed frame answering for itself.
+async function resolveSearchQuery(tabId, message) {
+    const embed = await askEmbedFrame(tabId);
+    const playing = (embed && embed.playing) || message.playing === true;
+
+    if (!playing) {
+        const selection = spadinhSelectionTerms(await readPageSelection(tabId));
+
+        // Highlighted text is used on its own: the release artist (often "Various") would only
+        // get in the way, and a tracklist line already carries its artist.
+        if (selection) {
+            return spadinhSearchQuery(selection, "");
+        }
+    }
+
+    const title = (embed && embed.title) || message.title || "";
+
+    return spadinhSearchQuery(title, message.artist || "");
+}
+
+// The top frame's selection, whichever frame the key was pressed in - with the player focused,
+// the highlight is still on the page around it.
+async function readPageSelection(tabId) {
+    if (tabId === null) {
+        return "";
+    }
+
+    try {
+        const [result] = await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: () => String(window.getSelection ? window.getSelection() : "")
+        });
+
+        return result && typeof result.result === "string" ? result.result : "";
+    } catch (error) {
+        return "";
+    }
+}
 
 function notifyPage(tabId, text) {
     if (tabId === null) {

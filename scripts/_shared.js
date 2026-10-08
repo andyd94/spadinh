@@ -52,18 +52,36 @@ const SPADINH_TITLE_NOISE = /\s*[(\[](?:official(?:\s+(?:music|lyric))?(?:\s+(?:
 
 // "artist - track" straight from the title when it already has that shape, which is the norm for
 // record rips; otherwise `artist` (a channel name, or the Discogs release artist) stands in.
+// Discogs writes its dashes as en dashes (–); they come out as plain hyphens so the query reads
+// the way anyone would type it.
 function spadinhSearchQuery(title, artist) {
-    const cleaned = (title || "").replace(SPADINH_TITLE_NOISE, " ").replace(/\s+/g, " ").trim();
+    const cleaned = (title || "")
+        .replace(SPADINH_TITLE_NOISE, " ")
+        .replace(/[–—]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
 
     if (!cleaned) {
         return "";
     }
 
-    if (/\s[-–—]\s/.test(cleaned) || !artist) {
+    if (/\s-\s/.test(cleaned) || !artist) {
         return cleaned;
     }
 
     return artist + " - " + cleaned;
+}
+
+// Highlighted text as a search: whitespace collapsed (a selection can span table cells and
+// lines), a leading Discogs track position like "A2 " dropped, and Discogs' "(2)" disambiguator
+// taken off an artist name. Digits-only positions are left alone - "808 State" is an artist, not
+// a position.
+function spadinhSelectionTerms(text) {
+    return (text || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^[A-Za-z]\d{1,2}\s+(?=\S)/, "")
+        .replace(/ \(\d+\)(?= [-–—] |$)/g, "");
 }
 
 // Sends a request to the service worker. Progress and outcomes arrive separately as

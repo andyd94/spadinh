@@ -44,7 +44,7 @@
 
 #### YouTube
 
-- On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise like `(Official Video)` or `[HD]` stripped; a title with no ` - ` gets the channel name in front as the artist.
+- On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise like `(Official Video)` or `[HD]` stripped; a title with no ` - ` gets the channel name in front as the artist (minus the ` - Topic` of YouTube's auto-generated artist channels; a `Various Artists - Topic` channel adds nothing).
 
 - `a` likes the video. It only ever likes — pressing it on a video you've already liked says so rather than unliking it.
 

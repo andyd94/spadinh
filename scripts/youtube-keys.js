@@ -48,10 +48,13 @@ function ytVideoTitle() {
     return text || document.title.replace(/\s*-\s*YouTube$/, "").trim();
 }
 
+// YouTube's auto-generated artist channels are named "Artist - Topic"; the artist is what's
+// wanted in front of the track. "Various Artists - Topic" names no one, so it stands in for nothing.
 function ytChannelName() {
     const element = document.querySelector("ytd-video-owner-renderer #channel-name a");
+    const name = element ? element.textContent.trim().replace(/\s+-\s+Topic$/i, "") : "";
 
-    return element ? element.textContent.trim() : "";
+    return /^various artists$/i.test(name) ? "" : name;
 }
 
 function ytIsPlaying() {

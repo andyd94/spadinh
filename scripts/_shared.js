@@ -58,6 +58,11 @@ const SPADINH_MIX_WORDS = /\b(?:mix|remix|dub|edit|re-?edit|version|instrumental
 // Round brackets naming the label rather than a mix: "(Megaphone Records)", "(Hotflush Recordings)".
 const SPADINH_LABEL_PARENS = /\s*\((?:[^()]*\s)?(?:records|recordings|recs?\.?|music|label)\)/gi;
 
+// A catalogue number in round brackets - "(MEGA004)", "(DUMB_004)", "(spork 03)", "(TSR-003LP)" -
+// or a year. Letters then two to five digits, so "(Part 2)" and "(Vol 1)" aren't caught; the
+// named words are excluded outright in case of "(Vol 10)".
+const SPADINH_CATALOGUE_PARENS = /\s*\((?!(?:part|pt|vol|volume|disc|disk|side|cd|take|no|track|ep|lp)\b)(?:[A-Za-z]{1,8}[-_ ]?\d{2,5}[A-Za-z]{0,2}|(?:19|20)\d{2})\)/gi;
+
 // "artist - track" straight from the title when it already has that shape, which is the norm for
 // record rips; otherwise `artist` (a channel name, or the Discogs release artist) stands in.
 // Discogs writes its dashes as en dashes (–); they come out as plain hyphens so the query reads
@@ -67,6 +72,7 @@ function spadinhSearchQuery(title, artist) {
         .replace(SPADINH_TITLE_NOISE, " ")
         .replace(SPADINH_BRACKET_TAG, (tag) => (SPADINH_MIX_WORDS.test(tag) ? tag : " "))
         .replace(SPADINH_LABEL_PARENS, " ")
+        .replace(SPADINH_CATALOGUE_PARENS, " ")
         .replace(/[–—]/g, "-")
         .replace(/\s+/g, " ")
         .trim();

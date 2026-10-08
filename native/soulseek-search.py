@@ -29,6 +29,35 @@ def soulseek_terms(query):
 
 
 SCRIPT = r'''
+-- Qt only exposes the widgets of the tab that's showing, so each stage walks the window afresh:
+-- the main "Search" tab first, then its "Manual Searches" sub-tab, then the box and button.
+on firstElement(w, wantedRole, wantedName)
+    tell application "System Events"
+        set allElements to entire contents of w
+        repeat with elRef in allElements
+            set el to contents of elRef
+            if role of el is wantedRole then
+                if wantedName is missing value then return el
+                if name of el is wantedName then return el
+            end if
+        end repeat
+    end tell
+    return missing value
+end firstElement
+
+-- Selects a tab (a radio button in SoulseekQt's tab strips) unless it's already the active one.
+on selectTab(w, tabName)
+    set theTab to my firstElement(w, "AXRadioButton", tabName)
+    if theTab is missing value then return false
+    tell application "System Events"
+        if value of theTab is not 1 then
+            click theTab
+            delay 0.3
+        end if
+    end tell
+    return true
+end selectTab
+
 on run argv
     set theQuery to item 1 of argv
 
@@ -43,45 +72,28 @@ on run argv
                 set tries to tries + 1
             end repeat
             if (count of windows) = 0 then error "SoulseekQt has no window open"
-
-            tell window 1
-                set searchBox to missing value
-                set searchButton to missing value
-                set searchTab to missing value
-                set manualTab to missing value
-
-                -- Collected into a list first: iterating `entire contents` directly hands over
-                -- "item N of entire contents of window 1" references System Events can't resolve.
-                set allElements to entire contents
-                repeat with elRef in allElements
-                    set el to contents of elRef
-                    set r to role of el
-                    if r is "AXComboBox" and searchBox is missing value then
-                        -- The first, and widest, combo box is the search field; the others are
-                        -- "search target" and saved filters.
-                        set searchBox to el
-                    else if r is "AXButton" and name of el is "Search" then
-                        set searchButton to el
-                    else if r is "AXRadioButton" then
-                        if name of el is "Search" then set searchTab to el
-                        if name of el is "Manual Searches" then set manualTab to el
-                    end if
-                end repeat
-
-                if searchBox is missing value or searchButton is missing value then
-                    error "couldn't find SoulseekQt's search box - is the Search tab available?"
-                end if
-
-                if searchTab is not missing value and value of searchTab is not 1 then click searchTab
-                if manualTab is not missing value and value of manualTab is not 1 then click manualTab
-
-                -- The combo box ignores a value set on itself; its line edit (the text field
-                -- inside it) takes the text, and Search then runs it.
-                set value of text field 1 of searchBox to theQuery
-                delay 0.1
-                click searchButton
-            end tell
+            set w to window 1
         end tell
+    end tell
+
+    my selectTab(w, "Search")
+    my selectTab(w, "Manual Searches")
+
+    -- The first, and widest, combo box is the search field; the others are "search target"
+    -- and saved filters.
+    set searchBox to my firstElement(w, "AXComboBox", missing value)
+    set searchButton to my firstElement(w, "AXButton", "Search")
+
+    if searchBox is missing value or searchButton is missing value then
+        error "couldn't find SoulseekQt's search box - is the Search tab available?"
+    end if
+
+    tell application "System Events"
+        -- The combo box ignores a value set on itself; its line edit (the text field inside it)
+        -- takes the text, and Search then runs it.
+        set value of text field 1 of searchBox to theQuery
+        delay 0.1
+        click searchButton
     end tell
 end run
 '''

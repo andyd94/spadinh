@@ -52,9 +52,8 @@ function ytVideoTitle() {
 // wanted in front of the track. "Various Artists - Topic" names no one, so it stands in for nothing.
 function ytChannelName() {
     const element = document.querySelector("ytd-video-owner-renderer #channel-name a");
-    const name = element ? element.textContent.trim().replace(/\s+-\s+Topic$/i, "") : "";
 
-    return /^various artists$/i.test(name) ? "" : name;
+    return spadinhArtistOrNone(element ? element.textContent.replace(/\s+-\s+Topic\s*$/i, "") : "");
 }
 
 function ytIsPlaying() {
@@ -64,11 +63,11 @@ function ytIsPlaying() {
 }
 
 // Same precedence as the service worker's: the playing video, else highlighted text, else the
-// (paused) video.
+// (paused) video. The channel name fronts a highlight without an artist of its own.
 function ytSearchQuery() {
     const selection = ytIsPlaying() ? "" : spadinhSelectionTerms(String(window.getSelection()));
 
-    return selection ? spadinhSearchQuery(selection, "") : spadinhSearchQuery(ytVideoTitle(), ytChannelName());
+    return spadinhSearchQuery(selection || ytVideoTitle(), ytChannelName());
 }
 
 function ytSearchVideo() {

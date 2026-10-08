@@ -54,7 +54,7 @@
 
 - On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
 
-- When nothing is playing, both `s` and `Shift+A` search for whatever text is highlighted on the page instead — highlight a tracklist line like `The Architect – Amber Waves` and press the key. A leading position (`A2 `) is dropped, and the release artist isn't added in front. A video that's loaded but paused is only searched when nothing is highlighted.
+- When nothing is playing, both `s` and `Shift+A` search for whatever text is highlighted on the page instead — highlight a tracklist line like `The Architect – Amber Waves` and press the key. A leading position (`A2 `) and Discogs' `(2)` artist suffix are dropped. A highlight with no ` - ` of its own — a bare track name on a single-artist release — gets the release artist (on YouTube, the channel) put in front; "Various" never is. A video that's loaded but paused is only searched when nothing is highlighted.
 
 #### Soulseek
 

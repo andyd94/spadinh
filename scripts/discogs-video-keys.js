@@ -80,12 +80,13 @@ function discogsPlayingVideoTitle() {
 }
 
 // The release heading is "Artist – Title"; its artist half stands in for a channel name when a
-// video title doesn't carry its own.
+// video title doesn't carry its own, and goes in front of a highlighted track name. Not for
+// compilations: "Various" names no one.
 function discogsReleaseArtist() {
     const heading = document.querySelector("h1");
     const match = heading ? heading.textContent.trim().match(/^(.+?)\s[–—-]\s/) : null;
 
-    return match ? match[1].trim() : "";
+    return spadinhArtistOrNone(match ? match[1] : "");
 }
 
 // Sent even when this page can't tell: the service worker asks the embed frame first, and it's the

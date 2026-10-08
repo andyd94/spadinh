@@ -408,7 +408,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    resolveSearchQuery(originTabId, message)
+    resolveSearchQuery(originTabId, message, senderOnDiscogs(sender))
         .then((query) => {
             if (!query) {
                 notifyPage(originTabId, "nothing playing and nothing highlighted");
@@ -461,7 +461,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    resolveSearchQuery(originTabId, message)
+    resolveSearchQuery(originTabId, message, senderOnDiscogs(sender))
         .then((query) => {
             if (!query) {
                 notifyPage(originTabId, "nothing playing and nothing highlighted");
@@ -481,17 +481,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // so a tracklist line can be searched without playing it; otherwise whatever video is loaded
 // (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
 // see into: YouTube watch pages, and the embed frame answering for itself.
-async function resolveSearchQuery(tabId, message) {
+//
+// A highlight that carries no " - " of its own gets an artist in front, like a video title would:
+// the one the sender gave (the channel on YouTube, the release artist on Discogs), or, when the
+// key was pressed inside the player and the embed frame knows no artist, the Discogs page's own
+// heading. Single-artist releases list bare track names, which is exactly this case.
+async function resolveSearchQuery(tabId, message, onDiscogs) {
     const embed = await askEmbedFrame(tabId);
     const playing = (embed && embed.playing) || message.playing === true;
 
     if (!playing) {
-        const selection = spadinhSelectionTerms(await readPageSelection(tabId));
+        const page = await readPageContext(tabId);
+        const selection = spadinhSelectionTerms(page.selection);
 
-        // Highlighted text is used on its own: the release artist (often "Various") would only
-        // get in the way, and a tracklist line already carries its artist.
         if (selection) {
-            return spadinhSearchQuery(selection, "");
+            return spadinhSearchQuery(selection, message.artist || (onDiscogs ? page.artist : ""));
         }
     }
 
@@ -500,22 +504,42 @@ async function resolveSearchQuery(tabId, message) {
     return spadinhSearchQuery(title, message.artist || "");
 }
 
-// The top frame's selection, whichever frame the key was pressed in - with the player focused,
-// the highlight is still on the page around it.
-async function readPageSelection(tabId) {
+function senderOnDiscogs(sender) {
+    try {
+        return /(^|\.)discogs\.com$/.test(new URL(sender.tab.url).hostname);
+    } catch (error) {
+        return false;
+    }
+}
+
+// The top frame's selection and release artist, whichever frame the key was pressed in - with
+// the player focused, the highlight is still on the page around it. Mirrors
+// discogs-video-keys.js's artist reading, which can't be called from here.
+async function readPageContext(tabId) {
+    const empty = { selection: "", artist: "" };
+
     if (tabId === null) {
-        return "";
+        return empty;
     }
 
     try {
         const [result] = await chrome.scripting.executeScript({
             target: { tabId: tabId },
-            func: () => String(window.getSelection ? window.getSelection() : "")
-        });
+            func: () => {
+                const heading = document.querySelector("h1");
+                const match = heading ? heading.textContent.trim().match(/^(.+?)\s[–—-]\s/) : null;
 
-        return result && typeof result.result === "string" ? result.result : "";
+                return {
+                    selection: String(window.getSelection ? window.getSelection() : ""),
+                    artist: match ? match[1].trim() : ""
+                };
+            }
+        });
+        const page = result && result.result ? result.result : empty;
+
+        return { selection: page.selection || "", artist: spadinhArtistOrNone(page.artist) };
     } catch (error) {
-        return "";
+        return empty;
     }
 }
 

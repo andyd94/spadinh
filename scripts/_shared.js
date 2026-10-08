@@ -72,6 +72,14 @@ function spadinhSearchQuery(title, artist) {
     return artist + " - " + cleaned;
 }
 
+// An artist name fit to put in front of a track, or "" when it names no one: Discogs credits
+// compilations to "Various", YouTube's auto-generated channels to "Various Artists".
+function spadinhArtistOrNone(name) {
+    const trimmed = (name || "").trim();
+
+    return /^various(\s+artists)?$/i.test(trimmed) ? "" : trimmed;
+}
+
 // Highlighted text as a search: whitespace collapsed (a selection can span table cells and
 // lines), a leading Discogs track position like "A2 " dropped, and Discogs' "(2)" disambiguator
 // taken off an artist name. Digits-only positions are left alone - "808 State" is an artist, not

@@ -489,9 +489,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function resolveSearchQuery(tabId, message, onDiscogs) {
     const embed = await askEmbedFrame(tabId);
     const playing = (embed && embed.playing) || message.playing === true;
+    let page = null;
 
     if (!playing) {
-        const page = await readPageContext(tabId);
+        page = await readPageContext(tabId);
+
         const selection = spadinhSelectionTerms(page.selection);
 
         if (selection) {
@@ -500,6 +502,11 @@ async function resolveSearchQuery(tabId, message, onDiscogs) {
     }
 
     const title = (embed && embed.title) || message.title || "";
+
+    // A Discogs page with no video and no highlight: the record itself, "Artist - Title".
+    if (!title && onDiscogs && page && page.releaseTitle) {
+        return spadinhSearchQuery(page.releaseTitle, page.artist);
+    }
 
     return spadinhSearchQuery(title, message.artist || "");
 }
@@ -512,11 +519,11 @@ function senderOnDiscogs(sender) {
     }
 }
 
-// The top frame's selection and release artist, whichever frame the key was pressed in - with
-// the player focused, the highlight is still on the page around it. Mirrors
-// discogs-video-keys.js's artist reading, which can't be called from here.
+// The top frame's selection and its "Artist – Title" heading split in two, whichever frame the
+// key was pressed in - with the player focused, the highlight is still on the page around it.
+// Mirrors discogs-video-keys.js's heading reading, which can't be called from here.
 async function readPageContext(tabId) {
-    const empty = { selection: "", artist: "" };
+    const empty = { selection: "", artist: "", releaseTitle: "" };
 
     if (tabId === null) {
         return empty;
@@ -527,17 +534,23 @@ async function readPageContext(tabId) {
             target: { tabId: tabId },
             func: () => {
                 const heading = document.querySelector("h1");
-                const match = heading ? heading.textContent.trim().match(/^(.+?)\s[–—-]\s/) : null;
+                const text = heading ? heading.textContent.replace(/\s+/g, " ").trim() : "";
+                const match = text.match(/^(.+?)\s[–—-]\s(.+)$/);
 
                 return {
                     selection: String(window.getSelection ? window.getSelection() : ""),
-                    artist: match ? match[1].trim() : ""
+                    artist: match ? match[1].trim() : "",
+                    releaseTitle: match ? match[2].trim() : text
                 };
             }
         });
         const page = result && result.result ? result.result : empty;
 
-        return { selection: page.selection || "", artist: spadinhArtistOrNone(page.artist) };
+        return {
+            selection: page.selection || "",
+            artist: spadinhArtistOrNone(page.artist),
+            releaseTitle: page.releaseTitle || ""
+        };
     } catch (error) {
         return empty;
     }

@@ -259,6 +259,102 @@ async function releaseStatus(releaseId) {
     return parts.join(" · ");
 }
 
+// --- Row info for artist and label pages ---------------------------------------------------------
+//
+// dinhscogvery-rows.js decorates each release row of a Discogs artist or label page with what
+// dinhscogvery knows about it. One `/api/query` filtered on the artist or label id covers the
+// whole page (up to 1000 releases a page, a few pages at most), keyed by release id and, for the
+// master rows an artist page shows, by master id.
+
+const DCV_ROWS_PAGE_LIMIT = 1000;
+const DCV_ROWS_MAX_PAGES = 5;
+const DCV_ROWS_TTL_MS = 10 * 60 * 1000;
+
+// Per artist/label, for as long as this service worker lives; a reload of the page within the
+// TTL doesn't re-query.
+const dcvRowsCache = new Map();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "dcvRows") {
+        return false;
+    }
+
+    getDcvRows(message.kind, message.id, message.force === true)
+        .then((rows) => sendResponse({ ok: true, rows: rows }))
+        .catch((error) => sendResponse({ ok: false, text: describeDcvError(error) }));
+
+    return true;
+});
+
+async function getDcvRows(kind, id, force) {
+    const key = kind + ":" + id;
+    const cached = dcvRowsCache.get(key);
+
+    if (!force && cached && Date.now() - cached.fetchedAt < DCV_ROWS_TTL_MS) {
+        return cached.rows;
+    }
+
+    const field = kind === "label" ? "label_id" : "artist_id";
+    const revisitList = await getRevisitList();
+    const rows = [];
+    let cursor = null;
+
+    for (let page = 0; page < DCV_ROWS_MAX_PAGES; page++) {
+        const data = (await dcvRequest("POST", "/api/query", {
+            filter: { field: field, op: "eq", value: id },
+            sort: "year_desc",
+            cursor: cursor,
+            limit: DCV_ROWS_PAGE_LIMIT,
+            dedup: false,
+            exclude_passed: false
+        })).data;
+
+        data.items.forEach((item) => rows.push(slimDcvRow(item, revisitList.id)));
+        cursor = data.next_cursor;
+
+        if (!cursor) {
+            break;
+        }
+    }
+
+    dcvRowsCache.set(key, { rows: rows, fetchedAt: Date.now() });
+
+    return rows;
+}
+
+// Just what the page shows; a label page can run to thousands of rows.
+function slimDcvRow(item, revisitListId) {
+    const community = item.community || {};
+
+    return {
+        id: item.id,
+        masterId: item.master_id,
+        have: community.have,
+        want: community.want,
+        rating: community.rating_avg,
+        ratingCount: community.rating_count,
+        styles: item.styles || [],
+        videos: (item.video_count || 0) + (item.master_video_count || 0),
+        instrumentals: item.instrumental_track_count || 0,
+        tracks: item.track_count || 0,
+        state: item.state,
+        revisit: (item.in_lists || []).includes(revisitListId),
+        // `taste_score` is the per-release taste score (the one `sort: taste_desc` orders by) once
+        // dinhscogvery exposes it on query items; until then only a `similar_to_*` query fills
+        // `similarity`, and a plain artist/label query has neither, so the badge stays off.
+        taste: dcvTasteScore(item),
+        tasteWhy: item.similarity ? item.similarity.why : []
+    };
+}
+
+function dcvTasteScore(item) {
+    if (typeof item.taste_score === "number") {
+        return item.taste_score;
+    }
+
+    return item.similarity && typeof item.similarity.score === "number" ? item.similarity.score : null;
+}
+
 function describeDcvError(error) {
     if (error instanceof DcvError) {
         if (error.status === 404 && /^release \d+ not found$/.test(error.detail)) {

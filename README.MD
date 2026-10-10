@@ -34,6 +34,10 @@
 
 - On a seller page, listings you've already passed are removed and listings on the Revisit list are tinted teal with a bar down their left edge. This runs on load and on paging, independently of the ratio filter's "auto" setting.
 
+- On an artist or label page, every release row dinhscogvery knows about gets a strip under its title: `24 have · 32 want` (hover for the want/have ratio), `★ 2.83 (6)`, the styles, `no clips` in red when neither the release nor its master has a video (a blind buy), `instr 2/4` when there are instrumental tracks, `passed` (row dimmed), `owned`, `revisit` (row tinted), and `taste N` once dinhscogvery sends a per-release taste score (see below). A grouped master row shows its most-wanted version's figures and how many versions dinhscogvery holds. It's one dinhscogvery query per artist or label, cached for 10 minutes, and rows are decorated as Discogs pages or filters them in. Rows dinhscogvery doesn't carry (not EDM, so not in the mirror) are left alone.
+
+- The taste badge needs a `taste_score` (integer, nullable) on each item `/api/query` returns, filled from the same scores `sort: taste_desc` orders by. Until dinhscogvery has that field the badge simply doesn't appear.
+
 - The passed/revisit lists are cached for 10 minutes. Passing or revisiting through this extension updates the cache straight away; click the popup's status line to re-sync after triaging in dinhscogvery itself.
 
 - If dinhscogvery can't be reached, the page is left exactly as it is rather than half-filtered.

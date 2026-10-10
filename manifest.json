@@ -27,6 +27,7 @@
         "scripts/ratio-filter.js",
         "scripts/dinhscogvery-keys.js",
         "scripts/dinhscogvery-marks.js",
+        "scripts/dinhscogvery-rows.js",
         "scripts/discogs-video-keys.js"
       ]
     },

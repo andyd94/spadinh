@@ -20,6 +20,8 @@
 
 - **Avoid Labels** and **Avoid Artists** are comma-separated lists; listings by any of them are removed at the same time as the ratio filter runs. The artist is the part of the listing title before ` - `, the label is as shown on the listing (minus its `(n)` suffix); both are matched whole, ignoring case, with no spaces after the commas.
 
+- The same filter works on an artist or label page, using the haves and wants dinhscogvery shows under each row (see Dinhscogvery below): **Filter**, Ctrl+Shift and "auto" all apply. Rows under the ratio are hidden rather than removed, so lowering the ratio and filtering again brings them back; rows with no figures are left showing. A toast says how many were hidden.
+
 - **Browse All** opens every listing left on the page in its own tab.
 
 - **Instrumentals** reloads the current Discogs search with the query set to `instrumental|dubstrumental|dubstramenal|dub&`, i.e. instrumental and dub mixes (and the usual misspellings).

@@ -4,6 +4,15 @@ let labelsToAvoid = [];
 init();
 
 async function init() {
+    // Artist and label pages take the popup's Filter and Ctrl+Shift too, with the figures coming
+    // from dinhscogvery (see dinhscogvery-rows.js, which also handles "auto" for them once the
+    // rows are decorated). Checked by path here: that script loads after this one.
+    if (/^\/(artist|label)\/\d+/.test(window.location.pathname)) {
+        ratioFilterListener();
+        ratioFilterKeysListener();
+        return;
+    }
+
     if (!onSellerPage()) {
         return false;
     }
@@ -157,17 +166,23 @@ function ratioFilterKeysListener() {
 }
 
 function autoRatioFilter() {
-    let ratio = 0.75;
-    
+    // The saved ratio has to be read before filtering, not after: this used to kick the filter off
+    // with the 0.75 default while the read was still in flight.
     chrome.storage.local.get(["spadinhRatio"]).then((result) => {
-        if (result.key !== null && result.spadinhRatio !== undefined) {
-            ratio = result.spadinhRatio;
-        }
+        const saved = parseFloat(result.spadinhRatio);
+
+        processRatioFilter(isNaN(saved) ? 0.75 : saved);
     });
-    processRatioFilter(ratio);
 }
 
 async function processRatioFilter(ratio) {
+    // Artist and label pages carry no community numbers; dinhscogvery-rows.js has them from
+    // dinhscogvery and does the filtering there.
+    if (typeof dcvRowsPage === "function" && dcvRowsPage()) {
+        dcvRowsRatioFilter(ratio);
+        return;
+    }
+
     labelsToAvoid = await getAvoidLabels();
     artistsToAvoid = await getAvoidArtists();
     const elements = document.getElementsByClassName(recordClass);

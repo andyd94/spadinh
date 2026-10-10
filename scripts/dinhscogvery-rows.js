@@ -11,11 +11,14 @@ const DCV_ROWS_STRIP_CLASS = "spadinh-dcv-strip";
 const DCV_ROWS_DONE_ATTR = "data-spadinh-dcv-row";
 const DCV_ROWS_PASSED_CLASS = "spadinh-dcv-row-passed";
 const DCV_ROWS_REVISIT_CLASS = "spadinh-dcv-row-revisit";
+const DCV_ROWS_HIDDEN_CLASS = "spadinh-dcv-row-hidden";
 const DCV_ROWS_TABLE = 'table[class*="releases_"], table[class*="labelReleasesTable_"]';
 const DCV_ROWS_DEBOUNCE_MS = 250;
 
 // Rows keyed by release id and by master id, per artist/label page seen in this tab.
 const dcvRowsByPage = new Map();
+// What each decorated row showed, for the ratio filter.
+const dcvRowsInfo = new WeakMap();
 let dcvRowsTimer = null;
 let dcvRowsApplying = false;
 
@@ -50,7 +53,8 @@ function dcvRowsInjectStyle() {
         "." + DCV_ROWS_STRIP_CLASS + " > .state { font-weight: 600; }",
         "." + DCV_ROWS_PASSED_CLASS + " { opacity: 0.5; }",
         "." + DCV_ROWS_REVISIT_CLASS + " { background-color: rgba(79, 209, 197, 0.12) !important; }",
-        "." + DCV_ROWS_REVISIT_CLASS + " > td:first-child { box-shadow: inset 4px 0 0 #319795; }"
+        "." + DCV_ROWS_REVISIT_CLASS + " > td:first-child { box-shadow: inset 4px 0 0 #319795; }",
+        "." + DCV_ROWS_HIDDEN_CLASS + " { display: none !important; }"
     ].join("\n");
 
     document.head.appendChild(style);
@@ -146,9 +150,44 @@ async function dcvRowsApply() {
             row.setAttribute(DCV_ROWS_DONE_ATTR, "");
             dcvRowsDecorate(row, index);
         }
+
+        // The popup's "auto" applies here as on a seller page, once the rows have their numbers.
+        if (await autoRatioFilterOn()) {
+            autoRatioFilter();
+        }
     } finally {
         dcvRowsApplying = false;
     }
+}
+
+// The ratio filter for these pages (ratio-filter.js hands over to this): rows whose want/have
+// from dinhscogvery is under `ratio` are hidden, not removed, so a lower ratio and another
+// Filter brings them back. Rows with no figures - not in dinhscogvery, or no community numbers
+// fetched yet - are left showing.
+function dcvRowsRatioFilter(ratio) {
+    let hidden = 0;
+    let total = 0;
+
+    for (const row of document.querySelectorAll(DCV_ROWS_TABLE + " tbody tr[" + DCV_ROWS_DONE_ATTR + "]")) {
+        const info = dcvRowsInfo.get(row);
+
+        total++;
+
+        if (!info || !(info.have > 0) || info.want === null || info.want === undefined) {
+            row.classList.remove(DCV_ROWS_HIDDEN_CLASS);
+            continue;
+        }
+
+        const tooLow = info.want / info.have < ratio;
+
+        row.classList.toggle(DCV_ROWS_HIDDEN_CLASS, tooLow);
+
+        if (tooLow) {
+            hidden++;
+        }
+    }
+
+    spadinhShowToast("ratio ≥ " + ratio + ": hid " + hidden + " of " + total + " rows");
 }
 
 // A row links either a release or, for the grouped entries, a master; a master shows the version
@@ -189,6 +228,8 @@ function dcvRowsDecorate(row, index) {
 
     const info = found.info;
     const strip = document.createElement("div");
+
+    dcvRowsInfo.set(row, info);
     const badge = (text, className, title) => {
         const span = document.createElement("span");
 

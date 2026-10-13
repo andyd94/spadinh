@@ -12,7 +12,8 @@ const DCV_ROWS_DONE_ATTR = "data-spadinh-dcv-row";
 const DCV_ROWS_PASSED_CLASS = "spadinh-dcv-row-passed";
 const DCV_ROWS_REVISIT_CLASS = "spadinh-dcv-row-revisit";
 const DCV_ROWS_HIDDEN_CLASS = "spadinh-dcv-row-hidden";
-const DCV_ROWS_TABLE = 'table[class*="releases_"], table[class*="labelReleasesTable_"]';
+// Wrapped in :is() so a suffix (" tbody tr") applies to both tables.
+const DCV_ROWS_TABLE = ':is(table[class*="releases_"], table[class*="labelReleasesTable_"])';
 const DCV_ROWS_DEBOUNCE_MS = 250;
 
 // Rows keyed by release id and by master id, per artist/label page seen in this tab.

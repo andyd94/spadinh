@@ -9,12 +9,28 @@ importScripts("_shared.js");
 // this works from any machine on it). Override it in the popup's API url field, e.g. with
 // http://127.0.0.1:8000 for a dev server on this machine.
 const DCV_DEFAULT_BASE_URL = "https://dinhscogvery.tail287e49.ts.net";
+
+// Where dinhscogvery answers on the serving Mac itself. When the configured address can't be
+// reached at all (the corporate VPN blocks Tailscale, the Mac's own tailnet IP included), requests
+// go here instead; on any other machine nothing listens, so the fallback fails fast and the error
+// says so.
+const DCV_LOCAL_BASE_URL = "http://127.0.0.1:8000";
 const DCV_REVISIT_SLUG = "revisit";
 
 // How long a fetched set of passed/revisit ids stays usable before it's refetched. Triage done
 // through this extension updates the cache in place (see `rememberStateChange`), so this only
 // covers records triaged elsewhere — in dinhscogvery itself, or on another machine.
 const DCV_SETS_TTL_MS = 10 * 60 * 1000;
+
+// How long a request gets to start answering (DNS, connect, TLS, first byte) before the address
+// counts as unreachable. Reading the body isn't timed: `/api/export` streams, and a long one
+// isn't a sign the address is down.
+const DCV_CONNECT_TIMEOUT_MS = 5 * 1000;
+
+// Once localhost has stood in for an unreachable address, requests go straight there for this
+// long rather than waiting out the timeout every time; after that the configured address is
+// tried first again. Session storage outlives this service worker but not Chrome.
+const DCV_LOCAL_STICKY_MS = 10 * 60 * 1000;
 
 class DcvError extends Error {
     constructor(status, detail) {
@@ -88,30 +104,97 @@ async function getDcvSessionId() {
 }
 
 async function dcvRequest(method, path, body) {
-    const baseUrl = await getDcvBaseUrl();
     const headers = { "X-Session-Id": await getDcvSessionId() };
 
     if (body !== undefined) {
         headers["Content-Type"] = "application/json";
     }
 
-    let response;
-
-    try {
-        response = await fetch(baseUrl + path, {
-            method: method,
-            headers: headers,
-            body: body === undefined ? undefined : JSON.stringify(body)
-        });
-    } catch (error) {
-        throw new DcvError(0, "can't reach dinhscogvery at " + baseUrl + " - is it running?");
-    }
+    const { response, baseUrl } = await dcvFetch(path, {
+        method: method,
+        headers: headers,
+        body: body === undefined ? undefined : JSON.stringify(body)
+    });
 
     if (!response.ok) {
         throw new DcvError(response.status, await readDcvDetail(response, baseUrl));
     }
 
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
+}
+
+// One request to dinhscogvery, sent to the configured address or localhost (see `dcvBaseUrls`).
+// Only a request that never starts getting a response - fetch rejecting, or the connect timeout -
+// moves on to the next address. An HTTP error is whatever is on that address answering, and goes
+// back to the caller as-is.
+async function dcvFetch(path, init) {
+    const configured = await getDcvBaseUrl();
+    const baseUrls = await dcvBaseUrls(configured);
+    let response = null;
+    let baseUrl = null;
+
+    for (const candidate of baseUrls) {
+        try {
+            response = await fetchWithConnectTimeout(candidate + path, init);
+            baseUrl = candidate;
+            break;
+        } catch (error) {
+            // unreachable or timed out - on to the next address
+        }
+    }
+
+    if (response === null) {
+        throw new DcvError(0, "can't reach dinhscogvery at " + configured +
+            (baseUrls.length > 1 ? " or " + DCV_LOCAL_BASE_URL : "") + " - is it running?");
+    }
+
+    // Localhost standing in for a configured address that just failed opens the sticky window; the
+    // configured address answering closes it. Localhost answering inside the window leaves it
+    // alone, so the configured address gets another go when the window runs out.
+    if (baseUrl === configured) {
+        await chrome.storage.session.remove("dcvLocalUntil");
+    } else if (baseUrls[0] === configured) {
+        await chrome.storage.session.set({ dcvLocalUntil: Date.now() + DCV_LOCAL_STICKY_MS });
+    }
+
+    return { response: response, baseUrl: baseUrl };
+}
+
+// The addresses to try, in order. A configured address that is already localhost has nothing to
+// fall back to; otherwise localhost goes first while a fallback is fresh, second the rest of the
+// time.
+async function dcvBaseUrls(configured) {
+    if (isLocalBaseUrl(configured)) {
+        return [configured];
+    }
+
+    const stored = await chrome.storage.session.get(["dcvLocalUntil"]);
+
+    if (stored.dcvLocalUntil && Date.now() < stored.dcvLocalUntil) {
+        return [DCV_LOCAL_BASE_URL, configured];
+    }
+
+    return [configured, DCV_LOCAL_BASE_URL];
+}
+
+function isLocalBaseUrl(baseUrl) {
+    try {
+        return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(baseUrl).hostname);
+    } catch (error) {
+        return false;
+    }
+}
+
+// The timer is cleared as soon as headers arrive, so only the connect is bounded.
+async function fetchWithConnectTimeout(url, init) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DCV_CONNECT_TIMEOUT_MS);
+
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 // Every error dinhscogvery raises carries a `detail`. A response without one didn't come from
@@ -164,14 +247,7 @@ function parseExportIds(csv) {
 }
 
 async function exportIds(query) {
-    const baseUrl = await getDcvBaseUrl();
-    let response;
-
-    try {
-        response = await fetch(baseUrl + "/api/export?" + query);
-    } catch (error) {
-        throw new DcvError(0, "can't reach dinhscogvery at " + baseUrl + " - is it running?");
-    }
+    const { response, baseUrl } = await dcvFetch("/api/export?" + query);
 
     if (!response.ok) {
         throw new DcvError(response.status, await readDcvDetail(response, baseUrl));

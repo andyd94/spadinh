@@ -51,6 +51,8 @@
 - Requests go to dinhscogvery's production box by default (`https://dinhscogvery.tail287e49.ts.net`), which is reachable only over the tailnet, so this works from any laptop on it and nowhere else. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` for a dev server on this machine).
 
 
+- If that address can't be reached at all — nothing answers within 5 seconds, which is what happens on the serving Mac with the corporate VPN up, since it blocks Tailscale — requests go to `http://127.0.0.1:8000` instead and stay there for 10 minutes before the tunnel is tried again. On any other laptop nothing's listening there, so the status just says it couldn't reach either address. An HTTP error from dinhscogvery never triggers this, and neither does an API url that already points at localhost.
+
 #### YouTube
 
 - On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise stripped: `(Official Video)`, `[HD]`, anything else in square brackets such as `[Megaphone Records]` or a catalogue number (a bracketed mix name like `[Original Mix]` survives), a label in round brackets like `(Megaphone Records)`, and a catalogue number or year in round brackets like `(MEGA004)` or `(2001)`; a title with no ` - ` gets the channel name in front as the artist (minus the ` - Topic` of YouTube's auto-generated artist channels; a `Various Artists - Topic` channel adds nothing).

@@ -20,7 +20,7 @@
 
 - **Avoid Labels** and **Avoid Artists** are comma-separated lists; listings by any of them are removed at the same time as the ratio filter runs. The artist is the part of the listing title before ` - `, the label is as shown on the listing (minus its `(n)` suffix); both are matched whole, ignoring case, with no spaces after the commas.
 
-- The same filter works on an artist or label page, using the haves and wants dinhscogvery shows under each row (see Dinhscogvery below): **Filter**, Ctrl+Shift and "auto" all apply. Rows under the ratio are hidden rather than removed, so lowering the ratio and filtering again brings them back; rows with no figures are left showing. A toast says how many were hidden.
+- The same filter works on an artist, label or search page, using the haves and wants dinhscogvery shows under each row (see Dinhscogvery below): **Filter**, Ctrl+Shift and "auto" all apply. Rows under the ratio are hidden rather than removed, so lowering the ratio and filtering again brings them back; rows with no figures are left showing. A toast says how many were hidden.
 
 - **Browse All** opens every listing left on the page in its own tab.
 
@@ -36,7 +36,7 @@
 
 - On a seller page, listings you've already passed are removed and listings on the Revisit list are tinted teal with a bar down their left edge. This runs on load and on paging, independently of the ratio filter's "auto" setting.
 
-- On an artist or label page, every release row dinhscogvery knows about gets a strip under its title: `24 have · 32 want` (hover for the want/have ratio), `★ 2.83 (6)`, the styles, `no clips` in red when neither the release nor its master has a video (a blind buy), `instr 2/4` when there are instrumental tracks, `passed` (row dimmed), `owned`, `revisit` (row tinted), and `taste N` once dinhscogvery sends a per-release taste score (see below). A grouped master row shows its most-wanted version's figures and how many versions dinhscogvery holds. It's one dinhscogvery query per artist or label, cached for 10 minutes, and rows are decorated as Discogs pages or filters them in. Rows dinhscogvery doesn't carry (not EDM, so not in the mirror) are left alone.
+- On an artist or label page, and on the search page, every release row (or result card) dinhscogvery knows about gets a strip under its title: `24 have · 32 want` (hover for the want/have ratio), `★ 2.83 (6)`, the styles, `no clips` in red when neither the release nor its master has a video (a blind buy), `instr 2/4` when there are instrumental tracks, `passed` (row dimmed), `owned`, `revisit` (row tinted), and `taste N` once dinhscogvery sends a per-release taste score (see below). A grouped master row shows its most-wanted version's figures and how many versions dinhscogvery holds. It's one dinhscogvery query per artist or label, cached for 10 minutes, and rows are decorated as Discogs pages or filters them in. Search results are anyone's, so they're looked up by the release and master ids on the page instead: in one query when dinhscogvery's `/api/query` accepts `release_id` / `master_id` clauses with `op: in`, otherwise one `/api/releases/{id}` at a time (slower, and master cards then can't be resolved). Rows dinhscogvery doesn't carry (not EDM, so not in the mirror) are left alone.
 
 - The taste badge needs a `taste_score` (integer, nullable) on each item `/api/query` returns, filled from the same scores `sort: taste_desc` orders by. Until dinhscogvery has that field the badge simply doesn't appear.
 

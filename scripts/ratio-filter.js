@@ -7,7 +7,7 @@ async function init() {
     // Artist and label pages take the popup's Filter and Ctrl+Shift too, with the figures coming
     // from dinhscogvery (see dinhscogvery-rows.js, which also handles "auto" for them once the
     // rows are decorated). Checked by path here: that script loads after this one.
-    if (/^\/(artist|label)\/\d+/.test(window.location.pathname)) {
+    if (/^\/(artist|label)\/\d+/.test(window.location.pathname) || /^\/search\/?$/.test(window.location.pathname)) {
         ratioFilterListener();
         ratioFilterKeysListener();
         return;

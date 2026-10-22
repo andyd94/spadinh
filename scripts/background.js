@@ -259,19 +259,23 @@ async function releaseStatus(releaseId) {
     return parts.join(" · ");
 }
 
-// --- Row info for artist and label pages ---------------------------------------------------------
+// --- Row info for artist, label and search pages -------------------------------------------------
 //
-// dinhscogvery-rows.js decorates each release row of a Discogs artist or label page with what
-// dinhscogvery knows about it. One `/api/query` filtered on the artist or label id covers the
-// whole page (up to 1000 releases a page, a few pages at most), keyed by release id and, for the
-// master rows an artist page shows, by master id.
+// dinhscogvery-rows.js decorates each release row of a Discogs artist or label page, and each
+// card of a search page, with what dinhscogvery knows about it. An artist or label is one
+// `/api/query` filtered on its id (up to 1000 releases a page, a few pages at most). Search
+// results are anyone's, so they're looked up by the release and master ids on the page: through
+// `/api/query`'s `release_id` / `master_id` clauses when dinhscogvery has them, else one
+// `/api/releases/{id}` at a time, which can't resolve masters. Rows are keyed by release id and,
+// for grouped master rows, by master id.
 
 const DCV_ROWS_PAGE_LIMIT = 1000;
 const DCV_ROWS_MAX_PAGES = 5;
 const DCV_ROWS_TTL_MS = 10 * 60 * 1000;
+const DCV_ROWS_DETAIL_CONCURRENCY = 4;
 
-// Per artist/label, for as long as this service worker lives; a reload of the page within the
-// TTL doesn't re-query.
+// Per artist/label, and per release/master id, for as long as this service worker lives; a
+// reload of the page within the TTL doesn't re-query.
 const dcvRowsCache = new Map();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -279,7 +283,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
     }
 
-    getDcvRows(message.kind, message.id, message.force === true)
+    const rows = message.kind === "ids"
+        ? getDcvRowsForIds(message.releaseIds || [], message.masterIds || [])
+        : getDcvRows(message.kind, message.id, message.force === true);
+
+    rows
         .then((rows) => sendResponse({ ok: true, rows: rows }))
         .catch((error) => sendResponse({ ok: false, text: describeDcvError(error) }));
 
@@ -296,12 +304,21 @@ async function getDcvRows(kind, id, force) {
 
     const field = kind === "label" ? "label_id" : "artist_id";
     const revisitList = await getRevisitList();
+    const rows = await queryDcvRows({ field: field, op: "eq", value: id }, revisitList.id);
+
+    dcvRowsCache.set(key, { rows: rows, fetchedAt: Date.now() });
+
+    return rows;
+}
+
+// Every release matching `filter`, paged.
+async function queryDcvRows(filter, revisitListId) {
     const rows = [];
     let cursor = null;
 
     for (let page = 0; page < DCV_ROWS_MAX_PAGES; page++) {
         const data = (await dcvRequest("POST", "/api/query", {
-            filter: { field: field, op: "eq", value: id },
+            filter: filter,
             sort: "year_desc",
             cursor: cursor,
             limit: DCV_ROWS_PAGE_LIMIT,
@@ -309,7 +326,7 @@ async function getDcvRows(kind, id, force) {
             exclude_passed: false
         })).data;
 
-        data.items.forEach((item) => rows.push(slimDcvRow(item, revisitList.id)));
+        data.items.forEach((item) => rows.push(slimDcvRow(item, revisitListId)));
         cursor = data.next_cursor;
 
         if (!cursor) {
@@ -317,9 +334,121 @@ async function getDcvRows(kind, id, force) {
         }
     }
 
-    dcvRowsCache.set(key, { rows: rows, fetchedAt: Date.now() });
+    return rows;
+}
+
+// Search cards: whatever of the ids isn't cached is fetched, and the rows for all of them go back.
+async function getDcvRowsForIds(releaseIds, masterIds) {
+    const now = Date.now();
+    const fresh = (key) => {
+        const cached = dcvRowsCache.get(key);
+        return cached && now - cached.fetchedAt < DCV_ROWS_TTL_MS ? cached.rows : null;
+    };
+    const wantedReleases = releaseIds.filter((id) => fresh("release:" + id) === null);
+    const wantedMasters = masterIds.filter((id) => fresh("master:" + id) === null);
+
+    if (wantedReleases.length > 0 || wantedMasters.length > 0) {
+        const revisitList = await getRevisitList();
+        const fetched = await fetchDcvRowsForIds(wantedReleases, wantedMasters, revisitList.id);
+        const byRelease = new Map();
+        const byMaster = new Map();
+
+        for (const row of fetched) {
+            byRelease.set(row.id, [row]);
+
+            if (row.masterId) {
+                byMaster.set(row.masterId, (byMaster.get(row.masterId) || []).concat(row));
+            }
+        }
+
+        // Misses are cached as empty too, so a card dinhscogvery doesn't know isn't asked again.
+        wantedReleases.forEach((id) => dcvRowsCache.set("release:" + id, { rows: byRelease.get(id) || [], fetchedAt: now }));
+        wantedMasters.forEach((id) => dcvRowsCache.set("master:" + id, { rows: byMaster.get(id) || [], fetchedAt: now }));
+    }
+
+    const rows = [];
+    const seen = new Set();
+    const take = (key) => {
+        for (const row of fresh(key) || []) {
+            if (!seen.has(row.id)) {
+                seen.add(row.id);
+                rows.push(row);
+            }
+        }
+    };
+
+    releaseIds.forEach((id) => take("release:" + id));
+    masterIds.forEach((id) => take("master:" + id));
 
     return rows;
+}
+
+// The id clauses are the way: one query for the lot, masters included. A dinhscogvery without
+// them answers 422 (unknown field), and then it's one release at a time.
+async function fetchDcvRowsForIds(releaseIds, masterIds, revisitListId) {
+    const clauses = [];
+
+    if (releaseIds.length > 0) {
+        clauses.push({ field: "release_id", op: "in", value: releaseIds });
+    }
+
+    if (masterIds.length > 0) {
+        clauses.push({ field: "master_id", op: "in", value: masterIds });
+    }
+
+    try {
+        return await queryDcvRows(clauses.length === 1 ? clauses[0] : { or: clauses }, revisitListId);
+    } catch (error) {
+        if (!(error instanceof DcvError) || error.status !== 422) {
+            throw error;
+        }
+    }
+
+    return fetchDcvReleasesOneByOne(releaseIds, revisitListId);
+}
+
+async function fetchDcvReleasesOneByOne(releaseIds, revisitListId) {
+    const queue = releaseIds.slice();
+    const rows = [];
+
+    const worker = async () => {
+        while (queue.length > 0) {
+            const id = queue.shift();
+
+            try {
+                rows.push(slimDcvDetail((await dcvRequest("GET", "/api/releases/" + id)).data, revisitListId));
+            } catch (error) {
+                // Not in the catalog is the common case on a search page; anything else still
+                // shouldn't take the rest of the page down with it.
+                if (!(error instanceof DcvError) || error.status !== 404) {
+                    console.warn("Spadinh: release " + id, describeDcvError(error));
+                }
+            }
+        }
+    };
+
+    await Promise.all(Array.from({ length: DCV_ROWS_DETAIL_CONCURRENCY }, worker));
+
+    return rows;
+}
+
+// `/api/releases/{id}` answers in a different shape from a query item: state and lists are
+// objects, and the rest is the same.
+function slimDcvDetail(detail, revisitListId) {
+    return slimDcvRow({
+        id: detail.id,
+        master_id: detail.master_id,
+        community: detail.community,
+        styles: detail.styles,
+        video_count: detail.video_count,
+        master_video_count: detail.master_video_count,
+        instrumental_track_count: detail.instrumental_track_count,
+        track_count: detail.track_count,
+        state: detail.state ? detail.state.state : "unseen",
+        in_lists: (detail.lists || []).map((list) => list.id),
+        taste_score: detail.taste_score,
+        similarity: detail.similarity
+    }, revisitListId);
 }
 
 // Just what the page shows; a label page can run to thousands of rows.

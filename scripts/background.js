@@ -355,7 +355,7 @@ async function getDcvRowsForIds(releaseIds, masterIds) {
         const byRelease = new Map();
         const byMaster = new Map();
 
-        for (const row of fetched) {
+        for (const row of fetched.rows) {
             byRelease.set(row.id, [row]);
 
             if (row.masterId) {
@@ -363,9 +363,16 @@ async function getDcvRowsForIds(releaseIds, masterIds) {
             }
         }
 
-        // Misses are cached as empty too, so a card dinhscogvery doesn't know isn't asked again.
-        wantedReleases.forEach((id) => dcvRowsCache.set("release:" + id, { rows: byRelease.get(id) || [], fetchedAt: now }));
-        wantedMasters.forEach((id) => dcvRowsCache.set("master:" + id, { rows: byMaster.get(id) || [], fetchedAt: now }));
+        // Genuine misses are cached as empty too, so a card dinhscogvery doesn't know isn't asked
+        // again; an id that got no answer (`unresolved`) is left out, to be asked next time.
+        const remember = (key, rows) => {
+            if (!fetched.unresolved.has(key)) {
+                dcvRowsCache.set(key, { rows: rows, fetchedAt: now });
+            }
+        };
+
+        wantedReleases.forEach((id) => remember("release:" + id, byRelease.get(id) || []));
+        wantedMasters.forEach((id) => remember("master:" + id, byMaster.get(id) || []));
     }
 
     const rows = [];
@@ -399,19 +406,29 @@ async function fetchDcvRowsForIds(releaseIds, masterIds, revisitListId) {
     }
 
     try {
-        return await queryDcvRows(clauses.length === 1 ? clauses[0] : { or: clauses }, revisitListId);
+        return { rows: await queryDcvRows(clauses.length === 1 ? clauses[0] : { or: clauses }, revisitListId), unresolved: new Set() };
     } catch (error) {
         if (!(error instanceof DcvError) || error.status !== 422) {
             throw error;
         }
     }
 
-    return fetchDcvReleasesOneByOne(releaseIds, revisitListId);
+    const fallback = await fetchDcvReleasesOneByOne(releaseIds, revisitListId);
+
+    // A master can't be looked up this way: it's answered only by whichever of its pressings
+    // happen to be on the page. So it's never remembered as a miss.
+    masterIds.forEach((id) => fallback.unresolved.add("master:" + id));
+
+    return fallback;
 }
 
+// `unresolved` holds the cache keys of ids that got no answer - a fetch that failed for any
+// reason but "not in the catalog" - so the caller doesn't remember them as misses: a page loaded
+// while the box was restarting would otherwise stay bare for ten minutes.
 async function fetchDcvReleasesOneByOne(releaseIds, revisitListId) {
     const queue = releaseIds.slice();
     const rows = [];
+    const unresolved = new Set();
 
     const worker = async () => {
         while (queue.length > 0) {
@@ -424,6 +441,7 @@ async function fetchDcvReleasesOneByOne(releaseIds, revisitListId) {
                 // shouldn't take the rest of the page down with it.
                 if (!(error instanceof DcvError) || error.status !== 404) {
                     console.warn("Spadinh: release " + id, describeDcvError(error));
+                    unresolved.add("release:" + id);
                 }
             }
         }
@@ -431,7 +449,7 @@ async function fetchDcvReleasesOneByOne(releaseIds, revisitListId) {
 
     await Promise.all(Array.from({ length: DCV_ROWS_DETAIL_CONCURRENCY }, worker));
 
-    return rows;
+    return { rows: rows, unresolved: unresolved };
 }
 
 // `/api/releases/{id}` answers in a different shape from a query item: state and lists are

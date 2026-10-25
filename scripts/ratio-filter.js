@@ -176,11 +176,15 @@ function autoRatioFilter() {
 }
 
 async function processRatioFilter(ratio) {
-    // Artist and label pages carry no community numbers; dinhscogvery-rows.js has them from
-    // dinhscogvery and does the filtering there.
-    if (typeof dcvRowsPage === "function" && dcvRowsPage()) {
-        dcvRowsRatioFilter(ratio);
-        return;
+    // Artist, label and search pages carry no community numbers; dinhscogvery-rows.js has them
+    // from dinhscogvery and does the filtering there. Seller listings have their own, below.
+    if (typeof dcvRowsPage === "function") {
+        const page = dcvRowsPage();
+
+        if (page && page.kind !== "seller") {
+            dcvRowsRatioFilter(ratio);
+            return;
+        }
     }
 
     labelsToAvoid = await getAvoidLabels();

@@ -302,7 +302,9 @@ async function getDcvRows(kind, id, force) {
         return cached.rows;
     }
 
-    const field = kind === "label" ? "label_id" : "artist_id";
+    // A seller page is the listings dinhscogvery has mirrored for that username (`seller_has`);
+    // an unmirrored seller simply yields nothing.
+    const field = kind === "seller" ? "seller_has" : (kind === "label" ? "label_id" : "artist_id");
     const revisitList = await getRevisitList();
     const rows = await queryDcvRows({ field: field, op: "eq", value: id }, revisitList.id);
 

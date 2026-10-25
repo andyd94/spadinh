@@ -32,7 +32,8 @@ let dcvRowsApplying = false;
 
 dcvRowsInit();
 
-// /artist/27226-Soultek, /label/10292-Discomagic-Records (and their paged/filtered forms), and
+// /artist/27226-Soultek, /label/10292-Discomagic-Records (and their paged/filtered forms),
+// /seller/dj_venser/profile (the listings dinhscogvery has mirrored for that seller), and
 // /search?q=… whose results can be anyone's.
 function dcvRowsPage() {
     const path = window.location.pathname;
@@ -42,11 +43,25 @@ function dcvRowsPage() {
         return { kind: match[1], id: parseInt(match[2], 10) };
     }
 
+    const seller = path.match(/^\/seller\/([^/]+)/);
+
+    if (seller) {
+        return { kind: "seller", id: decodeURIComponent(seller[1]) };
+    }
+
     return /^\/search\/?$/.test(path) ? { kind: "search", id: 0 } : null;
 }
 
 function dcvRowsSelector(page) {
-    return page.kind === "search" ? DCV_ROWS_CARD : DCV_ROWS_TABLE + " tbody tr";
+    switch (page.kind) {
+        case "search":
+            return DCV_ROWS_CARD;
+        case "seller":
+            // The marketplace listings, as the ratio filter and marks know them.
+            return "." + recordClass;
+        default:
+            return DCV_ROWS_TABLE + " tbody tr";
+    }
 }
 
 async function dcvRowsInit() {
@@ -147,6 +162,12 @@ async function dcvRowsIndexFor(page, pending) {
             return null;
         }
 
+        // Worth saying once: a seller with nothing in dinhscogvery hasn't been mirrored, and
+        // otherwise the page just looks like the extension did nothing.
+        if (page.kind === "seller" && rows.length === 0) {
+            spadinhShowToast("dinhscogvery hasn't mirrored " + page.id + "'s listings");
+        }
+
         const index = { byId: new Map(), byMaster: new Map() };
 
         dcvRowsAddToIndex(index, rows);
@@ -220,7 +241,8 @@ async function dcvRowsApply() {
         }
 
         // The popup's "auto" applies here as on a seller page, once the rows have their numbers.
-        if (await autoRatioFilterOn()) {
+        // On the seller page itself ratio-filter.js already runs it off the listing's own figures.
+        if (page.kind !== "seller" && await autoRatioFilterOn()) {
             autoRatioFilter();
         }
     } finally {
@@ -318,13 +340,17 @@ function dcvRowsDecorate(row, index) {
 
     strip.className = DCV_ROWS_STRIP_CLASS;
 
-    if (info.have !== null && info.have !== undefined) {
+    // A seller listing already prints its rating, haves and wants, and dinhscogvery-marks.js
+    // already removes passed listings and tints Revisit ones; there, only the rest goes on.
+    const onSeller = dcvRowsPage().kind === "seller";
+
+    if (!onSeller && info.have !== null && info.have !== undefined) {
         const ratio = info.have > 0 && info.want !== null ? (info.want / info.have).toFixed(2) : "–";
 
         badge(info.have + " have · " + info.want + " want", "", "want/have ratio " + ratio);
     }
 
-    if (info.rating !== null && info.rating !== undefined) {
+    if (!onSeller && info.rating !== null && info.rating !== undefined) {
         badge("★ " + Number(info.rating).toFixed(2) + " (" + info.ratingCount + ")", "", "community rating");
     }
 
@@ -346,23 +372,29 @@ function dcvRowsDecorate(row, index) {
 
     if (info.state === "passed") {
         badge("passed", "state", "passed in dinhscogvery");
-        row.classList.add(DCV_ROWS_PASSED_CLASS);
+
+        if (!onSeller) {
+            row.classList.add(DCV_ROWS_PASSED_CLASS);
+        }
     } else if (info.state === "owned") {
         badge("owned", "state", "in your collection");
     }
 
     if (info.revisit) {
         badge("revisit", "state good", "on the dinhscogvery Revisit list");
-        row.classList.add(DCV_ROWS_REVISIT_CLASS);
+
+        if (!onSeller) {
+            row.classList.add(DCV_ROWS_REVISIT_CLASS);
+        }
     }
 
     if (found.versions > 1) {
         badge(found.versions + " versions", "", "versions dinhscogvery holds; figures are the most wanted one's");
     }
 
-    // Under the title, inside its cell (or at the foot of a search card): survives whatever
-    // Discogs does with the other columns.
-    const cell = row.querySelector('td[class*="title_"], .hifi-catalog-listing-card-content') ||
+    // Under the title, inside its cell (at the foot of a search card, under a listing's
+    // description): survives whatever Discogs does with the other columns.
+    const cell = row.querySelector('td[class*="title_"], .hifi-catalog-listing-card-content, .item_description') ||
         row.querySelector("td:nth-child(3)") || row.lastElementChild;
 
     cell.appendChild(strip);

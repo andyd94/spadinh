@@ -14,6 +14,9 @@ const DCV_ROWS_DONE_ATTR = "data-spadinh-dcv-row";
 const DCV_ROWS_PASSED_CLASS = "spadinh-dcv-row-passed";
 const DCV_ROWS_REVISIT_CLASS = "spadinh-dcv-row-revisit";
 const DCV_ROWS_HIDDEN_CLASS = "spadinh-dcv-row-hidden";
+// The popup's blind-buy / instrumental filters; a class of their own so they and the ratio
+// filter don't undo each other.
+const DCV_ROWS_FILTERED_CLASS = "spadinh-dcv-row-filtered";
 // Wrapped in :is() so a suffix (" tbody tr") applies to both tables.
 const DCV_ROWS_TABLE = ':is(table[class*="releases_"], table[class*="labelReleasesTable_"])';
 // Search results are a grid of cards; the artist and label cards among them have no release
@@ -70,8 +73,133 @@ async function dcvRowsInit() {
     }
 
     dcvRowsInjectStyle();
+    await dcvRowsBuildBar();
     dcvRowsObserve();
     await dcvRowsApply();
+}
+
+// --- The filter bar ------------------------------------------------------------------------------
+//
+// A small fixed bar in the bottom-left corner (the toasts are bottom-right) with the two filters
+// dinhscogvery's own result list has - blind buys, no instrumental - and what's being hidden
+// right now, the ratio filter's doing included, so a filter can't be on without it showing.
+// Appended to <body> outside anything Discogs renders, so its re-renders never touch it. The
+// toggles are remembered across pages, like the ratio.
+
+const DCV_BAR_ID = "spadinh-dcv-bar";
+const DCV_BAR_FILTERS = [
+    { key: "dcvHideNoClips", label: "blind buys", title: "hide rows with no clips on the release or its master" },
+    { key: "dcvInstrumentalsOnly", label: "no instrumental", title: "hide rows without an instrumental track" }
+];
+
+// What's hidden right now, for the bar.
+let dcvRowsFilterHidden = 0;
+let dcvRowsRatioState = null;
+
+async function dcvRowsBuildBar() {
+    const settings = await chrome.storage.local.get(DCV_BAR_FILTERS.map((filter) => filter.key).concat("dcvBarCollapsed"));
+    const bar = document.createElement("div");
+
+    bar.id = DCV_BAR_ID;
+    bar.classList.toggle("collapsed", settings.dcvBarCollapsed === true);
+
+    const handle = document.createElement("button");
+
+    handle.type = "button";
+    handle.className = "handle";
+    handle.title = "dinhscogvery filters";
+    handle.addEventListener("click", () => {
+        bar.classList.toggle("collapsed");
+        chrome.storage.local.set({ dcvBarCollapsed: bar.classList.contains("collapsed") });
+    });
+    bar.appendChild(handle);
+
+    const body = document.createElement("div");
+
+    body.className = "body";
+
+    for (const filter of DCV_BAR_FILTERS) {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+
+        checkbox.type = "checkbox";
+        checkbox.checked = settings[filter.key] === true;
+        checkbox.addEventListener("change", async () => {
+            await chrome.storage.local.set({ [filter.key]: checkbox.checked });
+            await dcvRowsApplyFilters();
+        });
+
+        label.title = filter.title;
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(filter.label));
+        body.appendChild(label);
+    }
+
+    const status = document.createElement("span");
+
+    status.className = "status";
+    body.appendChild(status);
+
+    const ratio = document.createElement("button");
+
+    ratio.type = "button";
+    ratio.className = "ratio";
+    ratio.title = "the ratio filter's doing - click to show those rows again";
+    ratio.addEventListener("click", () => dcvRowsRatioFilter(0));
+    body.appendChild(ratio);
+
+    bar.appendChild(body);
+    document.body.appendChild(bar);
+    dcvRowsUpdateBar();
+}
+
+function dcvRowsUpdateBar() {
+    const bar = document.getElementById(DCV_BAR_ID);
+
+    if (!bar) {
+        return;
+    }
+
+    const anyOn = Array.from(bar.querySelectorAll("input")).some((checkbox) => checkbox.checked);
+    const status = bar.querySelector(".status");
+    const ratio = bar.querySelector(".ratio");
+
+    status.textContent = anyOn ? "hiding " + dcvRowsFilterHidden : "";
+    ratio.textContent = dcvRowsRatioState && dcvRowsRatioState.hidden > 0
+        ? "ratio ≥ " + dcvRowsRatioState.ratio + " hiding " + dcvRowsRatioState.hidden + " ×"
+        : "";
+    ratio.hidden = ratio.textContent === "";
+    bar.classList.toggle("active", anyOn || !ratio.hidden);
+}
+
+// The bar's filters, over every decorated row: blind buys (no clips on the release or its
+// master) and releases without an instrumental track. Rows dinhscogvery doesn't know stay, as
+// with the ratio filter.
+async function dcvRowsApplyFilters() {
+    const page = dcvRowsPage();
+
+    if (!page) {
+        return;
+    }
+
+    const settings = await chrome.storage.local.get(DCV_BAR_FILTERS.map((filter) => filter.key));
+    const hideNoClips = settings.dcvHideNoClips === true;
+    const instrumentalsOnly = settings.dcvInstrumentalsOnly === true;
+    let hidden = 0;
+
+    for (const row of document.querySelectorAll(dcvRowsSelector(page) + "[" + DCV_ROWS_DONE_ATTR + "]")) {
+        const info = dcvRowsInfo.get(row);
+        const out = !!info && ((hideNoClips && info.videos === 0) || (instrumentalsOnly && info.instrumentals === 0));
+
+        row.classList.toggle(DCV_ROWS_FILTERED_CLASS, out);
+
+        if (out) {
+            hidden++;
+        }
+    }
+
+    dcvRowsFilterHidden = hidden;
+    dcvRowsUpdateBar();
 }
 
 function dcvRowsInjectStyle() {
@@ -88,7 +216,17 @@ function dcvRowsInjectStyle() {
         "." + DCV_ROWS_REVISIT_CLASS + " { background-color: rgba(79, 209, 197, 0.12) !important; }",
         "." + DCV_ROWS_REVISIT_CLASS + " > td:first-child { box-shadow: inset 4px 0 0 #319795; }",
         "div." + DCV_ROWS_REVISIT_CLASS + " { box-shadow: inset 4px 0 0 #319795; border-radius: 6px; }",
-        "." + DCV_ROWS_HIDDEN_CLASS + " { display: none !important; }"
+        "." + DCV_ROWS_HIDDEN_CLASS + ", ." + DCV_ROWS_FILTERED_CLASS + " { display: none !important; }",
+        "#" + DCV_BAR_ID + " { position: fixed; left: 16px; bottom: 16px; z-index: 2147483646; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 6px; border-radius: 8px; background: #2d3748; color: #e2e8f0; font: 600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }",
+        "#" + DCV_BAR_ID + " .handle { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: #4a5568; cursor: pointer; flex: none; }",
+        "#" + DCV_BAR_ID + ".active .handle { background: #319795; }",
+        "#" + DCV_BAR_ID + " .body { display: flex; align-items: center; gap: 10px; }",
+        "#" + DCV_BAR_ID + ".collapsed .body { display: none; }",
+        "#" + DCV_BAR_ID + ".collapsed { padding: 6px; }",
+        "#" + DCV_BAR_ID + " label { display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }",
+        "#" + DCV_BAR_ID + " input { margin: 0; }",
+        "#" + DCV_BAR_ID + " .status { color: #fc8181; white-space: nowrap; }",
+        "#" + DCV_BAR_ID + " .ratio { padding: 0 6px; border: 0; border-radius: 4px; background: rgba(252, 129, 129, 0.2); color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }"
     ].join("\n");
 
     document.head.appendChild(style);
@@ -97,8 +235,9 @@ function dcvRowsInjectStyle() {
 // Paging, filtering and moving to another artist or label all happen without a page load; any
 // rows added anywhere are enough of a cue, debounced since a render adds them in a burst.
 function dcvRowsObserve() {
+    const bar = document.getElementById(DCV_BAR_ID);
     const observer = new MutationObserver((mutations) => {
-        if (!mutations.some((mutation) => mutation.addedNodes.length > 0)) {
+        if (!mutations.some((mutation) => mutation.addedNodes.length > 0 && !(bar && bar.contains(mutation.target)))) {
             return;
         }
 
@@ -240,6 +379,8 @@ async function dcvRowsApply() {
             dcvRowsDecorate(row, index);
         }
 
+        await dcvRowsApplyFilters();
+
         // The popup's "auto" applies here as on a seller page, once the rows have their numbers.
         // On the seller page itself ratio-filter.js already runs it off the listing's own figures.
         if (page.kind !== "seller" && await autoRatioFilterOn()) {
@@ -282,6 +423,8 @@ function dcvRowsRatioFilter(ratio) {
         }
     }
 
+    dcvRowsRatioState = { ratio: ratio, hidden: hidden };
+    dcvRowsUpdateBar();
     spadinhShowToast("ratio ≥ " + ratio + ": hid " + hidden + " of " + total + " rows");
 }
 

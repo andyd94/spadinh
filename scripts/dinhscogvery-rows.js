@@ -28,12 +28,13 @@ const DCV_ROWS_DEBOUNCE_MS = 250;
 // `dcvRowsInit` injects first thing refers to the id.
 const DCV_BAR_ID = "spadinh-dcv-bar";
 const DCV_BAR_FILTERS = [
-    { key: "dcvHideNoClips", label: "blind buys", title: "hide rows with no clips on the release or its master" },
-    { key: "dcvInstrumentalsOnly", label: "no instrumental", title: "hide rows without an instrumental track" }
+    { key: "dcvBlindBuysOnly", label: "blind buys only", title: "show only rows with no clips on the release or its master" },
+    { key: "dcvInstrumentalsOnly", label: "instrumentals only", title: "show only rows with an instrumental track" }
 ];
 
-// What's hidden right now, for the bar.
-let dcvRowsFilterHidden = 0;
+// What the bar's filters leave showing right now, and what the ratio filter is hiding.
+let dcvRowsFilterShown = 0;
+let dcvRowsFilterTotal = 0;
 let dcvRowsRatioState = null;
 
 // Rows keyed by release id and by master id: per artist/label page seen in this tab, and one
@@ -166,7 +167,7 @@ function dcvRowsUpdateBar() {
     const status = bar.querySelector(".status");
     const ratio = bar.querySelector(".ratio");
 
-    status.textContent = anyOn ? "hiding " + dcvRowsFilterHidden : "";
+    status.textContent = anyOn ? dcvRowsFilterShown + " of " + dcvRowsFilterTotal : "";
     ratio.textContent = dcvRowsRatioState && dcvRowsRatioState.hidden > 0
         ? "ratio ≥ " + dcvRowsRatioState.ratio + " hiding " + dcvRowsRatioState.hidden + " ×"
         : "";
@@ -174,9 +175,11 @@ function dcvRowsUpdateBar() {
     bar.classList.toggle("active", anyOn || !ratio.hidden);
 }
 
-// The bar's filters, over every decorated row: blind buys (no clips on the release or its
-// master) and releases without an instrumental track. Rows dinhscogvery doesn't know stay, as
-// with the ratio filter.
+// The bar's filters, over every decorated row - positive ones, like dinhscogvery's: "blind buys
+// only" keeps the rows with no clips on the release or its master, "instrumentals only" the rows
+// with an instrumental track, both together the rows that are both. While one is on, a row
+// dinhscogvery doesn't know goes too: it can't be shown to match. (The ratio filter is the other
+// way round and keeps such rows.)
 async function dcvRowsApplyFilters() {
     const page = dcvRowsPage();
 
@@ -185,22 +188,27 @@ async function dcvRowsApplyFilters() {
     }
 
     const settings = await chrome.storage.local.get(DCV_BAR_FILTERS.map((filter) => filter.key));
-    const hideNoClips = settings.dcvHideNoClips === true;
+    const blindBuysOnly = settings.dcvBlindBuysOnly === true;
     const instrumentalsOnly = settings.dcvInstrumentalsOnly === true;
-    let hidden = 0;
+    const anyOn = blindBuysOnly || instrumentalsOnly;
+    let shown = 0;
+    let total = 0;
 
     for (const row of document.querySelectorAll(dcvRowsSelector(page) + "[" + DCV_ROWS_DONE_ATTR + "]")) {
         const info = dcvRowsInfo.get(row);
-        const out = !!info && ((hideNoClips && info.videos === 0) || (instrumentalsOnly && info.instrumentals === 0));
+        const matches = !!info && !(blindBuysOnly && info.videos !== 0) && !(instrumentalsOnly && info.instrumentals === 0);
+        const out = anyOn && !matches;
 
         row.classList.toggle(DCV_ROWS_FILTERED_CLASS, out);
+        total++;
 
-        if (out) {
-            hidden++;
+        if (!out) {
+            shown++;
         }
     }
 
-    dcvRowsFilterHidden = hidden;
+    dcvRowsFilterShown = shown;
+    dcvRowsFilterTotal = total;
     dcvRowsUpdateBar();
 }
 

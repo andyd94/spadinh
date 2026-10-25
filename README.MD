@@ -44,9 +44,8 @@
 
 - If dinhscogvery can't be reached, the page is left exactly as it is rather than half-filtered.
 
-- Requests go to dinhscogvery's Tailscale Serve address by default (`https://ukfcp2j9w2qg.tail287e49.ts.net`), so this works from any laptop on the tailnet. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` on the serving machine).
+- Requests go to dinhscogvery's production box by default (`https://dinhscogvery.tail287e49.ts.net`), which is reachable only over the tailnet, so this works from any laptop on it and nowhere else. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` for a dev server on this machine).
 
-- Serve terminates TLS and proxies to `127.0.0.1:8000`, so dinhscogvery stays bound to localhost — nothing needs to listen on port 8000 across interfaces, and nothing is exposed to the LAN. Check it with `tailscale serve status`; re-add it with `tailscale serve --bg 8000`.
 
 #### YouTube
 

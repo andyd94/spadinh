@@ -5,10 +5,10 @@ importScripts("_shared.js");
 // on discogs.com send it messages rather than fetching themselves — a content script's fetch is
 // subject to Discogs' origin (CORS), while the extension origin is covered by host_permissions.
 
-// dinhscogvery's Tailscale Serve address, so this works from any machine on the tailnet. Serve
-// terminates TLS and proxies to 127.0.0.1:8000, so dinhscogvery stays bound to localhost and
-// nothing has to listen on port 8000 across interfaces. Override it in the popup's API url field.
-const DCV_DEFAULT_BASE_URL = "https://ukfcp2j9w2qg.tail287e49.ts.net";
+// dinhscogvery's production box, reachable only over the tailnet (it serves over Tailscale, so
+// this works from any machine on it). Override it in the popup's API url field, e.g. with
+// http://127.0.0.1:8000 for a dev server on this machine.
+const DCV_DEFAULT_BASE_URL = "https://dinhscogvery.tail287e49.ts.net";
 const DCV_REVISIT_SLUG = "revisit";
 
 // How long a fetched set of passed/revisit ids stays usable before it's refetched. Triage done

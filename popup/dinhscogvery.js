@@ -1,7 +1,7 @@
 // Popup side of the dinhscogvery buttons. The API calls themselves live in the service worker
 // (scripts/background.js), shared with the `p`/`r` keys on discogs.com.
 
-const DCV_DEFAULT_BASE_URL = "https://ukfcp2j9w2qg.tail287e49.ts.net";
+const DCV_DEFAULT_BASE_URL = "https://dinhscogvery.tail287e49.ts.net";
 
 document.addEventListener("DOMContentLoaded", () => {
     const baseUrlInput = document.getElementById("dcv-base-url");

@@ -99,7 +99,13 @@ async function dcvRowsInit() {
 // Appended to <body> outside anything Discogs renders, so its re-renders never touch it. The
 // toggles are remembered across pages, like the ratio.
 
+// Idempotent, and called again on every pass over the rows: the search page's React app hydrates
+// the whole document and throws out body children that were there before it, the bar included.
 async function dcvRowsBuildBar() {
+    if (document.getElementById(DCV_BAR_ID)) {
+        return;
+    }
+
     const settings = await chrome.storage.local.get(DCV_BAR_FILTERS.map((filter) => filter.key).concat("dcvBarCollapsed"));
     const bar = document.createElement("div");
 
@@ -366,6 +372,8 @@ async function dcvRowsApply() {
     if (!page || dcvRowsApplying) {
         return;
     }
+
+    await dcvRowsBuildBar();
 
     const pending = Array.from(document.querySelectorAll(dcvRowsSelector(page)))
         .filter((row) => !row.hasAttribute(DCV_ROWS_DONE_ATTR));

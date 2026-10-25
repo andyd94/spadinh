@@ -24,6 +24,18 @@ const DCV_ROWS_TABLE = ':is(table[class*="releases_"], table[class*="labelReleas
 const DCV_ROWS_CARD = 'div[role="listitem"]';
 const DCV_ROWS_DEBOUNCE_MS = 250;
 
+// The filter bar (see further down). Declared up here with the rest: the stylesheet that
+// `dcvRowsInit` injects first thing refers to the id.
+const DCV_BAR_ID = "spadinh-dcv-bar";
+const DCV_BAR_FILTERS = [
+    { key: "dcvHideNoClips", label: "blind buys", title: "hide rows with no clips on the release or its master" },
+    { key: "dcvInstrumentalsOnly", label: "no instrumental", title: "hide rows without an instrumental track" }
+];
+
+// What's hidden right now, for the bar.
+let dcvRowsFilterHidden = 0;
+let dcvRowsRatioState = null;
+
 // Rows keyed by release id and by master id: per artist/label page seen in this tab, and one
 // growing index for search results, with the ids already asked for.
 const dcvRowsByPage = new Map();
@@ -85,16 +97,6 @@ async function dcvRowsInit() {
 // right now, the ratio filter's doing included, so a filter can't be on without it showing.
 // Appended to <body> outside anything Discogs renders, so its re-renders never touch it. The
 // toggles are remembered across pages, like the ratio.
-
-const DCV_BAR_ID = "spadinh-dcv-bar";
-const DCV_BAR_FILTERS = [
-    { key: "dcvHideNoClips", label: "blind buys", title: "hide rows with no clips on the release or its master" },
-    { key: "dcvInstrumentalsOnly", label: "no instrumental", title: "hide rows without an instrumental track" }
-];
-
-// What's hidden right now, for the bar.
-let dcvRowsFilterHidden = 0;
-let dcvRowsRatioState = null;
 
 async function dcvRowsBuildBar() {
     const settings = await chrome.storage.local.get(DCV_BAR_FILTERS.map((filter) => filter.key).concat("dcvBarCollapsed"));

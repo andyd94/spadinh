@@ -40,7 +40,7 @@
 
 - A small bar in the page's bottom-left corner carries the filters dinhscogvery's own result list has: **blind buys only** keeps just the rows with no clips, **instrumentals only** just the rows with an instrumental track (both on: rows that are both). They're remembered across pages, apply as rows come in, and the bar shows how many rows are left (`4 of 17`) - and what the ratio filter is hiding, with a × to show those rows again - so a filter can't be on without it showing. Its dot goes teal while anything is hidden; click the dot to collapse the bar to just that. While one of these is on, rows dinhscogvery doesn't know are hidden too, since they can't be shown to match; the ratio filter, the other way round, leaves them.
 
-- The taste badge needs a `taste_score` (integer, nullable) on each item `/api/query` returns, filled from the same scores `sort: taste_desc` orders by. Until dinhscogvery has that field the badge simply doesn't appear.
+- The taste badge shows `taste_pct`, the release's taste score as a percentile among every release dinhscogvery has scored: `taste 97` means it scores higher than 97% of the catalog (hover for the raw score). Owned records and other pressings of them have no score, so no badge. Against a dinhscogvery that only sends `taste_score` the badge shows that raw score instead, and with neither it doesn't appear.
 
 - The passed/revisit lists are cached for 10 minutes. Passing or revisiting through this extension updates the cache straight away; click the popup's status line to re-sync after triaging in dinhscogvery itself.
 

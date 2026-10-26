@@ -467,6 +467,7 @@ function slimDcvDetail(detail, revisitListId) {
         state: detail.state ? detail.state.state : "unseen",
         in_lists: (detail.lists || []).map((list) => list.id),
         taste_score: detail.taste_score,
+        taste_pct: detail.taste_pct,
         similarity: detail.similarity
     }, revisitListId);
 }
@@ -491,7 +492,10 @@ function slimDcvRow(item, revisitListId) {
         // `taste_score` is the per-release taste score (the one `sort: taste_desc` orders by) once
         // dinhscogvery exposes it on query items; until then only a `similar_to_*` query fills
         // `similarity`, and a plain artist/label query has neither, so the badge stays off.
+        // `taste_pct` is that score's percentile among every scored release (0-100), what the
+        // badge shows when dinhscogvery sends it.
         taste: dcvTasteScore(item),
+        tastePct: typeof item.taste_pct === "number" ? item.taste_pct : null,
         tasteWhy: item.similarity ? item.similarity.why : []
     };
 }

@@ -527,7 +527,10 @@ function dcvRowsDecorate(row, index) {
         badge("instr " + info.instrumentals + "/" + info.tracks, "good", "instrumental tracks");
     }
 
-    if (info.taste !== null && info.taste !== undefined) {
+    if (info.tastePct !== null && info.tastePct !== undefined) {
+        badge("taste " + info.tastePct, "good",
+            "a higher taste score than " + info.tastePct + "% of the catalog (raw score " + info.taste + ")");
+    } else if (info.taste !== null && info.taste !== undefined) {
         badge("taste " + info.taste, "good", (info.tasteWhy || []).join("\n") || "dinhscogvery taste score");
     }
 

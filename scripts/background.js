@@ -467,6 +467,7 @@ function slimDcvDetail(detail, revisitListId) {
         state: detail.state ? detail.state.state : "unseen",
         in_lists: (detail.lists || []).map((list) => list.id),
         taste_score: detail.taste_score,
+        taste_pct: detail.taste_pct,
         similarity: detail.similarity
     }, revisitListId);
 }
@@ -488,20 +489,24 @@ function slimDcvRow(item, revisitListId) {
         tracks: item.track_count || 0,
         state: item.state,
         revisit: (item.in_lists || []).includes(revisitListId),
-        // `taste_score` is the per-release taste score (the one `sort: taste_desc` orders by) once
-        // dinhscogvery exposes it on query items; until then only a `similar_to_*` query fills
-        // `similarity`, and a plain artist/label query has neither, so the badge stays off.
-        taste: dcvTasteScore(item),
-        tasteWhy: item.similarity ? item.similarity.why : []
+        // `taste_pct` is the per-release taste score (the one `sort: taste_desc` orders by) as a
+        // 0-100 percentile, with the raw `taste_score` kept for the hover; without one only a
+        // `similar_to_*` query fills `similarity`, and a plain artist/label query has neither, so
+        // the badge stays off.
+        ...dcvTaste(item)
     };
 }
 
-function dcvTasteScore(item) {
-    if (typeof item.taste_score === "number") {
-        return item.taste_score;
+function dcvTaste(item) {
+    const why = item.similarity ? item.similarity.why : [];
+
+    if (typeof item.taste_pct === "number") {
+        const raw = typeof item.taste_score === "number" ? "taste score " + item.taste_score : "";
+        return { taste: item.taste_pct, tasteWhy: [raw, ...why].filter(Boolean) };
     }
 
-    return item.similarity && typeof item.similarity.score === "number" ? item.similarity.score : null;
+    const score = item.similarity && typeof item.similarity.score === "number" ? item.similarity.score : null;
+    return { taste: score, tasteWhy: why };
 }
 
 function describeDcvError(error) {

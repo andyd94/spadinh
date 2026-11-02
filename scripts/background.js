@@ -45,6 +45,8 @@ async function runDcvCommand(command, releaseId) {
             return toggleRevisit(releaseId);
         case "status":
             return releaseStatus(releaseId);
+        case "seen":
+            return markSeen(releaseId);
         default:
             throw new DcvError(0, "unknown dinhscogvery command " + command);
     }
@@ -247,6 +249,14 @@ async function toggleRevisit(releaseId) {
     await dcvRequest("POST", "/api/lists/" + revisitList.id + "/items", { release_id: releaseId });
     await rememberStateChange(releaseId, { revisit: true });
     return "added #" + releaseId + " to " + revisitList.name;
+}
+
+// Opening a release page on Discogs records it as seen (viewed), like opening it in dinhscogvery:
+// bumps seen_count and last_seen_at, keeps first_seen_at.
+async function markSeen(releaseId) {
+    const seen = (await dcvRequest("POST", "/api/releases/" + releaseId + "/seen")).data;
+
+    return "seen #" + releaseId + " (" + seen.seen_count + "x)";
 }
 
 // Where the release already stands, e.g. "#123 · passed · Revisit".

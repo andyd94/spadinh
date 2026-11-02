@@ -1,5 +1,6 @@
 // dinhscogvery's triage keys on Discogs itself: `p` passes the release you're looking at, `r`
-// parks it on / takes it off the Revisit list. The API calls go through the service worker.
+// parks it on / takes it off the Revisit list. Opening a release page also marks it seen
+// (viewed) in dinhscogvery. The API calls go through the service worker.
 
 const DCV_KEYS = { p: "pass", r: "revisit" };
 
@@ -13,6 +14,24 @@ function dcvKeysInit() {
     }
 
     document.addEventListener("keydown", dcvOnKeyDown);
+    dcvMarkViewed();
+}
+
+// The release page itself (/release/123-..., also under a locale prefix like /de/), not its
+// marketplace listings: visiting a record there marks it seen in dinhscogvery, the same footprint
+// its own release panel leaves. Silent either way — a release dinhscogvery doesn't carry (404),
+// or an unreachable box, isn't worth a toast on every page.
+function dcvMarkViewed() {
+    const match = window.location.pathname.match(/^(?:\/[a-z]{2})?\/release\/(\d+)/);
+
+    if (!match) {
+        return;
+    }
+
+    chrome.runtime.sendMessage({ action: "dcv", command: "seen", releaseId: parseInt(match[1], 10) }, () => {
+        // Read lastError so Chrome doesn't log it when the service worker is reloading.
+        void chrome.runtime.lastError;
+    });
 }
 
 // Release pages (/release/123-Artist-Title) and a release's listings (/sell/release/123) carry

@@ -45,7 +45,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
     }
 
-    runDcvCommand(message.command, message.releaseId)
+    runDcvCommand(message.command, message.releaseId, message.masterId)
         .then((text) => sendResponse({ ok: true, text: text }))
         .catch((error) => sendResponse({ ok: false, text: describeDcvError(error) }));
 
@@ -53,7 +53,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-async function runDcvCommand(command, releaseId) {
+async function runDcvCommand(command, releaseId, masterId) {
     switch (command) {
         case "pass":
             return passRelease(releaseId);
@@ -63,6 +63,8 @@ async function runDcvCommand(command, releaseId) {
             return releaseStatus(releaseId);
         case "seen":
             return markSeen(releaseId);
+        case "seenMaster":
+            return markMasterSeen(masterId);
         default:
             throw new DcvError(0, "unknown dinhscogvery command " + command);
     }
@@ -344,6 +346,26 @@ async function markSeen(releaseId) {
     return "seen #" + releaseId + " (" + seen.seen_count + "x)";
 }
 
+// Opening a master page on Discogs marks every pressing dinhscogvery holds for it seen, in
+// one call (`POST /api/masters/{id}/seen`); same bump as `markSeen` on each.
+async function markMasterSeen(masterId) {
+    const seen = (await dcvRequest("POST", "/api/masters/" + masterId + "/seen")).data;
+
+    for (const entry of dcvRowsCache.values()) {
+        entry.rows.forEach((row) => {
+            if (row.masterId === masterId) {
+                row.seen = true;
+            }
+        });
+    }
+
+    const times = seen.seen_count_min === seen.seen_count_max
+        ? seen.seen_count_min + "x"
+        : seen.seen_count_min + "-" + seen.seen_count_max + "x";
+
+    return "seen master #" + masterId + " (" + seen.release_ids.length + " pressings, " + times + ")";
+}
+
 // Where the release already stands, e.g. "#123 · passed · Revisit".
 async function releaseStatus(releaseId) {
     const release = (await dcvRequest("GET", "/api/releases/" + releaseId)).data;
@@ -608,7 +630,7 @@ function dcvTaste(item) {
 
 function describeDcvError(error) {
     if (error instanceof DcvError) {
-        if (error.status === 404 && /^release \d+ not found$/.test(error.detail)) {
+        if (error.status === 404 && /^(release|master) \d+ not found$/.test(error.detail)) {
             return "not in the dinhscogvery catalog";
         }
 

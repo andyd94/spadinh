@@ -1,6 +1,6 @@
 // Artist, label and search pages: every release row (or result card) gets a strip of what
 // dinhscogvery knows about it - community haves, wants and rating, styles, whether there are
-// clips (none means blind buy), instrumental tracks, where it stands (passed / owned / Revisit, and a grey tint when seen),
+// clips (none means blind buy), instrumental tracks, where it stands (passed / owned / Revisit, and a grey tint when seen (any version, for a grouped master row)),
 // and the taste score when dinhscogvery has one. Through the service worker (`dcvRows`): one
 // query per artist or label page, and one lookup per batch of ids on a search page, whose
 // results are anyone's. Rows that dinhscogvery doesn't carry (not EDM, so not in the mirror) are
@@ -452,7 +452,8 @@ function dcvRowsRatioFilter(ratio) {
 }
 
 // A row links either a release or, for the grouped entries, a master; a master shows the version
-// dinhscogvery rates most wanted, and says how many it holds.
+// dinhscogvery rates most wanted, and says how many it holds: figures from the most-wanted
+// version, seen from any.
 function dcvRowsLookup(row, index) {
     const linked = dcvRowsLinkedId(row);
 
@@ -463,7 +464,7 @@ function dcvRowsLookup(row, index) {
     if (linked.kind === "release") {
         const info = index.byId.get(linked.id);
 
-        return info ? { info: info, versions: 1 } : null;
+        return info ? { info: info, versions: 1, seen: info.seen === true, seenVersions: info.seen ? 1 : 0 } : null;
     }
 
     const versions = index.byMaster.get(linked.id);
@@ -474,7 +475,12 @@ function dcvRowsLookup(row, index) {
 
     const best = versions.reduce((top, candidate) => ((candidate.want || 0) > (top.want || 0) ? candidate : top));
 
-    return { info: best, versions: versions.length };
+    return {
+        info: best,
+        versions: versions.length,
+        seen: versions.some((v) => v.seen),
+        seenVersions: versions.filter((v) => v.seen).length,
+    };
 }
 
 function dcvRowsDecorate(row, index) {
@@ -536,7 +542,7 @@ function dcvRowsDecorate(row, index) {
         badge("taste " + info.taste, "good", (info.tasteWhy || []).join("\n") || "dinhscogvery taste score");
     }
 
-    if (info.seen) {
+    if (found.seen) {
         row.classList.add(DCV_ROWS_SEEN_CLASS);
     }
 
@@ -559,7 +565,14 @@ function dcvRowsDecorate(row, index) {
     }
 
     if (found.versions > 1) {
-        badge(found.versions + " versions", "", "versions dinhscogvery holds; figures are the most wanted one's");
+        const partlySeen = found.seenVersions > 0 && found.seenVersions < found.versions;
+
+        badge(
+            found.versions + " versions",
+            "",
+            "versions dinhscogvery holds; figures are the most wanted one's" +
+                (partlySeen ? "; seen " + found.seenVersions + " of " + found.versions : ""),
+        );
     }
 
     // Under the title, inside its cell (at the foot of a search card, under a listing's

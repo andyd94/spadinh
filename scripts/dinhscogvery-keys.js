@@ -1,6 +1,7 @@
 // dinhscogvery's triage keys on Discogs itself: `p` passes the release you're looking at, `r`
 // parks it on / takes it off the Revisit list. Opening a release page also marks it seen
-// (viewed) in dinhscogvery. The API calls go through the service worker.
+// (viewed) in dinhscogvery; opening a master page marks every pressing dinhscogvery holds for it
+// seen. The API calls go through the service worker.
 
 const DCV_KEYS = { p: "pass", r: "revisit" };
 
@@ -9,26 +10,32 @@ let dcvKeyBusy = false;
 dcvKeysInit();
 
 function dcvKeysInit() {
+    dcvMarkViewed();
+
     if (dcvReleaseIdFromPage() === null) {
         return;
     }
 
     document.addEventListener("keydown", dcvOnKeyDown);
-    dcvMarkViewed();
 }
 
-// The release page itself (/release/123-..., also under a locale prefix like /de/), not its
-// marketplace listings: visiting a record there marks it seen in dinhscogvery, the same footprint
-// its own release panel leaves. Silent either way — a release dinhscogvery doesn't carry (404),
-// or an unreachable box, isn't worth a toast on every page.
+// The release or master page itself (/release/123-..., /master/123-..., also under a locale prefix
+// like /de/), not its marketplace listings: visiting a record there marks it seen in dinhscogvery,
+// the same footprint its own release panel leaves; a master page marks every pressing dinhscogvery
+// holds for it. Silent either way — a release or master dinhscogvery doesn't carry (404), or an
+// unreachable box, isn't worth a toast on every page. `p` and `r` stay release-only.
 function dcvMarkViewed() {
-    const match = window.location.pathname.match(/^(?:\/[a-z]{2})?\/release\/(\d+)/);
+    const match = window.location.pathname.match(/^(?:\/[a-z]{2})?\/(release|master)\/(\d+)/);
 
     if (!match) {
         return;
     }
 
-    chrome.runtime.sendMessage({ action: "dcv", command: "seen", releaseId: parseInt(match[1], 10) }, () => {
+    const message = match[1] === "master"
+        ? { action: "dcv", command: "seenMaster", masterId: parseInt(match[2], 10) }
+        : { action: "dcv", command: "seen", releaseId: parseInt(match[2], 10) };
+
+    chrome.runtime.sendMessage(message, () => {
         // Read lastError so Chrome doesn't log it when the service worker is reloading.
         void chrome.runtime.lastError;
     });

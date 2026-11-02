@@ -256,6 +256,15 @@ async function toggleRevisit(releaseId) {
 async function markSeen(releaseId) {
     const seen = (await dcvRequest("POST", "/api/releases/" + releaseId + "/seen")).data;
 
+    // Rows cached for artist/label/search pages pick it up now rather than after their TTL.
+    for (const entry of dcvRowsCache.values()) {
+        entry.rows.forEach((row) => {
+            if (row.id === releaseId) {
+                row.seen = true;
+            }
+        });
+    }
+
     return "seen #" + releaseId + " (" + seen.seen_count + "x)";
 }
 
@@ -475,6 +484,7 @@ function slimDcvDetail(detail, revisitListId) {
         instrumental_track_count: detail.instrumental_track_count,
         track_count: detail.track_count,
         state: detail.state ? detail.state.state : "unseen",
+        seen: detail.seen !== null && detail.seen !== undefined,
         in_lists: (detail.lists || []).map((list) => list.id),
         taste_score: detail.taste_score,
         taste_pct: detail.taste_pct,
@@ -498,6 +508,7 @@ function slimDcvRow(item, revisitListId) {
         instrumentals: item.instrumental_track_count || 0,
         tracks: item.track_count || 0,
         state: item.state,
+        seen: item.seen === true,
         revisit: (item.in_lists || []).includes(revisitListId),
         // `taste_pct` is the per-release taste score (the one `sort: taste_desc` orders by) as a
         // 0-100 percentile, with the raw `taste_score` kept for the hover; without one only a

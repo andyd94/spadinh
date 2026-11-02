@@ -1,6 +1,6 @@
 // Artist, label and search pages: every release row (or result card) gets a strip of what
 // dinhscogvery knows about it - community haves, wants and rating, styles, whether there are
-// clips (none means blind buy), instrumental tracks, where it stands (passed / owned / Revisit),
+// clips (none means blind buy), instrumental tracks, where it stands (passed / owned / Revisit, and a grey tint when seen),
 // and the taste score when dinhscogvery has one. Through the service worker (`dcvRows`): one
 // query per artist or label page, and one lookup per batch of ids on a search page, whose
 // results are anyone's. Rows that dinhscogvery doesn't carry (not EDM, so not in the mirror) are
@@ -12,6 +12,7 @@
 const DCV_ROWS_STRIP_CLASS = "spadinh-dcv-strip";
 const DCV_ROWS_DONE_ATTR = "data-spadinh-dcv-row";
 const DCV_ROWS_PASSED_CLASS = "spadinh-dcv-row-passed";
+const DCV_ROWS_SEEN_CLASS = "spadinh-dcv-row-seen";
 const DCV_ROWS_REVISIT_CLASS = "spadinh-dcv-row-revisit";
 const DCV_ROWS_HIDDEN_CLASS = "spadinh-dcv-row-hidden";
 // The popup's blind-buy / instrumental filters; a class of their own so they and the ratio
@@ -229,6 +230,10 @@ function dcvRowsInjectStyle() {
         "." + DCV_ROWS_STRIP_CLASS + " > .good { background: rgba(79, 209, 197, 0.22); }",
         "." + DCV_ROWS_STRIP_CLASS + " > .state { font-weight: 600; }",
         "." + DCV_ROWS_PASSED_CLASS + " { opacity: 0.5; }",
+        // dinhscogvery's seen tint: a faint grey wash over the whole row, text untouched. Before
+        // the Revisit rule so a seen Revisit row keeps the teal.
+        "." + DCV_ROWS_SEEN_CLASS + " { background-color: rgba(107, 107, 107, 0.10) !important; }",
+        "div." + DCV_ROWS_SEEN_CLASS + " { border-radius: 6px; }",
         "." + DCV_ROWS_REVISIT_CLASS + " { background-color: rgba(79, 209, 197, 0.12) !important; }",
         "." + DCV_ROWS_REVISIT_CLASS + " > td:first-child { box-shadow: inset 4px 0 0 #319795; }",
         "div." + DCV_ROWS_REVISIT_CLASS + " { box-shadow: inset 4px 0 0 #319795; border-radius: 6px; }",
@@ -529,6 +534,10 @@ function dcvRowsDecorate(row, index) {
 
     if (info.taste !== null && info.taste !== undefined) {
         badge("taste " + info.taste, "good", (info.tasteWhy || []).join("\n") || "dinhscogvery taste score");
+    }
+
+    if (info.seen) {
+        row.classList.add(DCV_ROWS_SEEN_CLASS);
     }
 
     if (info.state === "passed") {

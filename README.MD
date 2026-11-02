@@ -32,6 +32,8 @@
 
 - The same keys as dinhscogvery work on the Discogs page itself: `p` passes, `r` toggles Revisit. A small toast in the bottom-right corner shows the result. Keys are ignored while typing in a field or with a modifier held.
 
+- Opening a Discogs release page marks the release as seen (viewed) in dinhscogvery, the same footprint opening it in dinhscogvery leaves (`POST /api/releases/{id}/seen`: first/last seen time and a count). It happens silently on every load of the release page itself, not its marketplace listings or a master page (seen is per release). Releases dinhscogvery doesn't carry are ignored.
+
 - The status line under the buttons shows where the release already stands (`#123 · passed · Revisit`), or `not in the dinhscogvery catalog` when it isn't an EDM release in the mirror.
 
 - On a seller page, listings you've already passed are removed and listings on the Revisit list are tinted teal with a bar down their left edge. This runs on load and on paging, independently of the ratio filter's "auto" setting.

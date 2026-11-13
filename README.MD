@@ -1,84 +1,115 @@
+# Spadinh
+
+Chrome extension for digging on Discogs and YouTube: filter listings, triage releases against dinhscogvery, and like, shortlist or search for the playing track from the keyboard.
+
+## Shortcuts
+
+| Key | Action | Discogs page | Discogs embedded player | YouTube video page |
+| --- | --- | :---: | :---: | :---: |
+| `p` | Pass the release in dinhscogvery | release / listing | | |
+| `r` | Toggle the release on the Revisit list | release / listing | | |
+| `a` | Like the playing video | ✓ | ✓ | ✓ |
+| `d` | Add the playing video to the **Downloads** playlist | ✓ | ✓ | ✓ |
+| `s` | Google the playing track as `artist - track name` | ✓ | ✓ | ✓ |
+| `Shift+S` | Search SoulseekQt for the playing track | ✓ | ✓ | ✓ |
+| `Ctrl+Shift` | Run the ratio filter | seller, artist, label, search | | |
+
+Letter keys are ignored while typing in a field or with another modifier held. A toast on the page reports the result.
+
 ## Installation
 
-1) Click on code -> download zip 
-2) Extract the folder from zip file 
-3) In your chrome window go to chrome://extensions
-4) Click load unpacked
-5) Select extracted "spadinh" folder
+1. `git clone git@github.com:andyd94/spadinh.git`
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and select the `spadinh` folder.
 
-## Usage
+To update:
 
-#### Ratio Filter
+1. `git pull`
+2. Reload the extension in `chrome://extensions`.
+3. Refresh any open Discogs and YouTube tabs.
 
-- On a seller page, **Filter** removes every listing whose want/have ratio (the two community numbers on the listing) is below the ratio in the popup. The ratio defaults to 0.75 and is remembered.
+### Soulseek helper (macOS only, once per Mac)
 
-- The "auto" checkbox beside the ratio input will determine whether this filter will automatically run on page load and on paging.
+`Shift+S` needs a small helper that types the query into SoulseekQt. It requires the Xcode Command Line Tools (`xcode-select --install`).
 
-- Alternatively you can press Ctrl + Shift to trigger this action.
+1. From the extension folder, run `bash native/install.sh` (no sudo). Re-run it if the folder moves.
+2. In `chrome://extensions`, remove any existing Spadinh entry and **Load unpacked** again. The manifest `key` pins the extension id to `onhlmcgjfnopeojjoocnmneahejhhlmh`, so Chrome treats it as a new extension and the popup settings reset once.
+3. Press `Shift+S`. When macOS asks, allow Google Chrome under System Settings → Privacy & Security → Accessibility (and Automation, if asked), then press `Shift+S` again.
 
-- The record count text will update to reflect the new number of results on the page.
+## Ratio filter
 
-- **Avoid Labels** and **Avoid Artists** are comma-separated lists; listings by any of them are removed at the same time as the ratio filter runs. The artist is the part of the listing title before ` - `, the label is as shown on the listing (minus its `(n)` suffix); both are matched whole, ignoring case, with no spaces after the commas.
+Popup controls, for Discogs seller, artist, label and search pages.
 
-- The same filter works on an artist, label or search page, using the haves and wants dinhscogvery shows under each row (see Dinhscogvery below): **Filter**, Ctrl+Shift and "auto" all apply. Rows under the ratio are hidden rather than removed, so lowering the ratio and filtering again brings them back; rows with no figures are left showing. A toast says how many were hidden.
+- **Filter** (or `Ctrl+Shift`) drops every listing whose want/have ratio is below the popup's ratio. Default 0.75, remembered.
+- **auto** runs the filter on page load and on paging.
+- **Avoid Labels** / **Avoid Artists**: comma-separated, no spaces after the commas, matched whole and case-insensitively. Matching listings go when the filter runs.
+- **Browse All** opens every remaining listing in its own tab.
+- **Instrumentals** reruns the current Discogs search for instrumental and dub mixes.
 
-- **Browse All** opens every listing left on the page in its own tab.
+On seller pages listings are removed and the record count updates. On artist, label and search pages the filter uses dinhscogvery's figures, so rows are hidden instead: lower the ratio and filter again to bring them back. Rows with no figures stay.
 
-- **Instrumentals** reloads the current Discogs search with the query set to `instrumental|dubstrumental|dubstramenal|dub&`, i.e. instrumental and dub mixes (and the usual misspellings).
+## Dinhscogvery
 
-#### Dinhscogvery
+### Triage
 
-- With a Discogs release page open (or one of its marketplace listings), **Pass** marks the release as passed in dinhscogvery and **Revisit** parks it on the built-in Revisit list (press again to take it off).
+- **Pass** (`p`) and **Revisit** (`r`) work on a release page or one of its marketplace listings. Pressing Revisit again takes the release off the list.
+- Opening a release page marks it seen. Opening a master page marks every pressing seen.
+- The popup status line shows where the release stands (`#123 · passed · Revisit`), or `not in the dinhscogvery catalog`. Click it to re-sync after triaging in dinhscogvery itself.
 
-- The same keys as dinhscogvery work on the Discogs page itself: `p` passes, `r` toggles Revisit. A small toast in the bottom-right corner shows the result. Keys are ignored while typing in a field or with a modifier held.
+### Row strips
 
-- Opening a Discogs release page marks the release as seen (viewed) in dinhscogvery, the same footprint opening it in dinhscogvery leaves (`POST /api/releases/{id}/seen`: first/last seen time and a count). Opening a master page marks every pressing of it that dinhscogvery holds seen in one go (`POST /api/masters/{id}/seen`), since seen is per release. Both happen silently on every load of the page itself, not its marketplace listings. Releases and masters dinhscogvery doesn't carry are ignored.
+On artist, label, search and seller pages, each row dinhscogvery knows gets a strip under its title:
 
-- The status line under the buttons shows where the release already stands (`#123 · passed · Revisit`), or `not in the dinhscogvery catalog` when it isn't an EDM release in the mirror.
+| Badge | Meaning |
+| --- | --- |
+| `24 have · 32 want` | Community figures; hover for the ratio |
+| `★ 2.83 (6)` | Rating and vote count |
+| styles | The release's styles |
+| `no clips` (red) | No video on the release or its master: a blind buy |
+| `instr 2/4` | Instrumental tracks out of total |
+| `taste N` | Taste percentile, 0-100; hover for the raw score |
+| `passed` / `owned` / `revisit` | Your status; passed rows are dimmed, revisit rows tinted |
+| grey tint | Already seen, in dinhscogvery or on Discogs |
 
-- On a seller page, listings you've already passed are removed and listings on the Revisit list are tinted teal with a bar down their left edge. This runs on load and on paging, independently of the ratio filter's "auto" setting.
+- A grouped master row shows its most-wanted version's figures and the number of versions held. It is tinted when any version is seen; hover the count for `seen n of m`.
+- Seller pages: strips appear only for sellers dinhscogvery has mirrored (a toast says when it hasn't) and leave out rating, haves and wants. Passed listings are removed and Revisit listings tinted teal, regardless of **auto**.
+- Rows dinhscogvery doesn't carry are left alone.
 
-- On an artist or label page, on the search page, and on a seller's page (for sellers dinhscogvery has mirrored — a toast says when it hasn't), every release row (or result card, or listing) dinhscogvery knows about gets a strip under its title: `24 have · 32 want` (hover for the want/have ratio), `★ 2.83 (6)`, the styles, `no clips` in red when neither the release nor its master has a video (a blind buy), `instr 2/4` when there are instrumental tracks, `passed` (row dimmed), `owned`, `revisit` (row tinted), a faint grey tint on rows you've already seen (opened in dinhscogvery or on Discogs; the same tint dinhscogvery's table uses), and `taste N` once dinhscogvery sends a per-release taste score (N is its 0-100 percentile; hover for the raw score; see below). A grouped master row shows its most-wanted version's figures and how many versions dinhscogvery holds; it gets the seen tint when any of those versions is seen (hover the versions count for `seen n of m`). On a seller's page the rating, haves and wants are already printed on each listing, so the strip leaves those out. It's one dinhscogvery query per artist or label, cached for 10 minutes, and rows are decorated as Discogs pages or filters them in. Search results are anyone's, so they're looked up by the release and master ids on the page instead: in one query when dinhscogvery's `/api/query` accepts `release_id` / `master_id` clauses with `op: in`, otherwise one `/api/releases/{id}` at a time (slower, and master cards then can't be resolved). Rows dinhscogvery doesn't carry (not EDM, so not in the mirror) are left alone.
+### Filter bar
 
-- A small bar in the page's bottom-left corner carries the filters dinhscogvery's own result list has: **blind buys only** keeps just the rows with no clips, **instrumentals only** just the rows with an instrumental track (both on: rows that are both). They're remembered across pages, apply as rows come in, and the bar shows how many rows are left (`4 of 17`) - and what the ratio filter is hiding, with a × to show those rows again - so a filter can't be on without it showing. Its dot goes teal while anything is hidden; click the dot to collapse the bar to just that. While one of these is on, rows dinhscogvery doesn't know are hidden too, since they can't be shown to match; the ratio filter, the other way round, leaves them.
+A bar in the bottom-left corner of the page:
 
-- The taste badge shows `taste_pct` (integer 0-100, nullable), the percentile of the `taste_score` that `sort: taste_desc` orders by, from each `/api/query` item and `/api/releases/{id}`; the raw `taste_score` is its hover text. A release with no `taste_pct` gets no badge.
+- **blind buys only** keeps rows with no clips. **instrumentals only** keeps rows with an instrumental track. Both are remembered across pages.
+- While either is on, rows dinhscogvery doesn't know are hidden too.
+- It shows how many rows are left (`4 of 17`) and what the ratio filter is hiding, with a × to show those rows again.
+- The dot turns teal while anything is hidden. Click it to collapse the bar.
 
-- The passed/revisit lists are cached for 10 minutes. Passing or revisiting through this extension updates the cache straight away; click the popup's status line to re-sync after triaging in dinhscogvery itself.
+### Connection
 
-- If dinhscogvery can't be reached, the page is left exactly as it is rather than half-filtered.
+- Default API url: `https://dinhscogvery.tail287e49.ts.net`, reachable only on the tailnet. Change it in the popup's API url field.
+- If nothing answers within 5 seconds (e.g. a VPN is blocking Tailscale), requests fall back to `http://127.0.0.1:8000` for 10 minutes, then the tunnel is retried.
+- If neither answers, the page is left untouched and the status says so.
+- Data is cached for 10 minutes. Passing or revisiting through the extension updates it at once.
 
-- Requests go to dinhscogvery's production box by default (`https://dinhscogvery.tail287e49.ts.net`), which is reachable only over the tailnet, so this works from any laptop on it and nowhere else. Change the API url field if it's served elsewhere (e.g. `http://127.0.0.1:8000` for a dev server on this machine).
+## YouTube keys
 
+`a`, `d`, `s` and `Shift+S` act on the video playing on a YouTube video page or in a Discogs release page's embedded player, whichever has focus.
 
-- If that address can't be reached at all — nothing answers within 5 seconds, which is what happens on the serving Mac with the corporate VPN up, since it blocks Tailscale — requests go to `http://127.0.0.1:8000` instead and stay there for 10 minutes before the tunnel is tried again. On any other laptop nothing's listening there, so the status just says it couldn't reach either address. An HTTP error from dinhscogvery never triggers this, and neither does an API url that already points at localhost.
+- **`a` (like)** only ever likes. On an already-liked video it says so.
+- **`d` (Downloads)** adds the video to a private playlist named **Downloads**, created on first use. A video already in it is left alone. It uses your YouTube session: no Google Cloud or OAuth setup.
+- On Discogs, `a` and `d` fall back to opening the video in a background YouTube tab, acting there and closing it, when the player can't do it (e.g. signed out because third-party cookies are blocked).
+- **`s` (Google)** searches `artist - track name` in a new tab, with upload noise stripped from the title: `(Official Video)`, `[HD]`, label names, catalogue numbers, years. If the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.
+- **`Shift+S` (Soulseek)** sends the same query, minus punctuation, to SoulseekQt and brings its results to the front.
 
-#### YouTube
+When nothing is playing, `s` and `Shift+S` search the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
 
-- On a video page, `s` opens a Google search for the video as `artist - track name` in a new tab. The title is used as-is when it already has that shape (the norm for record rips), with upload noise stripped: `(Official Video)`, `[HD]`, anything else in square brackets such as `[Megaphone Records]` or a catalogue number (a bracketed mix name like `[Original Mix]` survives), a label in round brackets like `(Megaphone Records)`, and a catalogue number or year in round brackets like `(MEGA004)` or `(2001)`; a title with no ` - ` gets the channel name in front as the artist (minus the ` - Topic` of YouTube's auto-generated artist channels; a `Various Artists - Topic` channel adds nothing).
+## Troubleshooting
 
-- `a` likes the video. It only ever likes — pressing it on a video you've already liked says so rather than unliking it.
-
-- `d` adds the video to your private **Downloads** playlist on YouTube — a shortlist to flick through later and trim before downloading. The playlist is found by name (any case) and made, private, the first time `d` is pressed if you don't have one. A video already in it is left alone and the toast says so. It uses your YouTube session the same way `a` does (YouTube's own internal request, no Google Cloud or sign-in setup), so it stops working if YouTube changes that request; the toast says why.
-
-- None of these keys clash with YouTube's own shortcuts. Keys are ignored while typing in a field or with a modifier held.
-
-- On a Discogs release page, `a` likes the video playing in the embedded player, without leaving the page. The embed has no like button, so the extension sends the like button's own internal request from inside the player frame, using your YouTube session. That request is undocumented, so if YouTube ever rejects it — or you're signed out in the player, which happens when third-party cookies are blocked — the extension falls back to opening the video on YouTube in a background tab, liking it there and closing the tab again. A toast reports which happened. It works whether the page or the player has keyboard focus.
-
-- On a Discogs release page, `d` adds the video playing in the embedded player to the Downloads playlist, the same way `a` likes it: from inside the player when it can, else through a background YouTube tab that's closed again. It works whether the page or the player has keyboard focus.
-
-- On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
-
-- When nothing is playing, both `s` and `Shift+S` search for whatever text is highlighted on the page instead — highlight a tracklist line like `The Architect – Amber Waves` and press the key. A leading position (`A2 `) and Discogs' `(2)` artist suffix are dropped. A highlight with no ` - ` of its own — a bare track name on a single-artist release — gets the release artist (on YouTube, the channel) put in front; "Various" never is. A video that's loaded but paused is only searched when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched, as `Artist - Title` from the page heading (just the title for a `Various` release).
-
-#### Soulseek
-
-- `Shift+S` — on a YouTube video page, on a Discogs release page, or inside its player — searches SoulseekQt for the playing track, using the same `artist - track name` query as `s` with all punctuation removed (`Klang & Spallek - Track (Mix)` goes in as `Klang Spallek Track Mix`): Soulseek matches words against filenames, and reads `-word` as "exclude". SoulseekQt comes to the front, switched to Search → Manual Searches if it was on another tab, with the results tab open. A toast on the page reports what was searched, or why it couldn't be.
-
-- SoulseekQt has no API, so the extension hands the query to a small helper (`native/soulseek-search.py`) that Chrome is allowed to launch; it types into SoulseekQt's search box and presses Search through macOS accessibility. macOS only; it uses the built-in `osascript` and Apple's `/usr/bin/python3`, which needs the Xcode Command Line Tools installed (`xcode-select --install` if `python3 --version` prompts for them). One-time setup on each Mac:
-
-  1) From the extension folder run `bash native/install.sh` (no sudo). It registers the helper with Chrome, Chromium and Brave for this checkout's location — re-run it if the folder moves.
-  2) In `chrome://extensions`, remove any existing Spadinh entry and **Load unpacked** the folder again: the `key` in the manifest fixes the id at `onhlmcgjfnopeojjoocnmneahejhhlmh` on every machine, and Chrome treats that as a new extension (the popup's saved settings reset once). On later updates a plain reload is enough.
-  3) Press `Shift+S` once; macOS asks to let Google Chrome control the computer. Allow it under System Settings → Privacy & Security → Accessibility (and, if asked, under Automation), then press `Shift+S` again.
-
-- If the toast says it can't reach the Soulseek bridge, step 1 hasn't been run on this Mac, or the folder has moved since. Any other failure is reported in the toast with the reason.
+| Symptom | Cause / fix |
+| --- | --- |
+| dinhscogvery status says it couldn't reach either address | You're off the tailnet and nothing is serving on `127.0.0.1:8000`. |
+| Toast: can't reach the Soulseek bridge | `native/install.sh` hasn't been run on this Mac, or the folder has moved. Re-run it. |
+| `Shift+S` does nothing in SoulseekQt | Chrome lacks Accessibility permission (helper step 3). |
+| `a` or `d` on Discogs opens a background tab | Expected fallback when the embedded player is signed out. |
+| `a` or `d` stops working everywhere | YouTube changed its internal request; the toast says why. |
+| Keys do nothing after an update | Reload the extension and refresh the tab. |

@@ -82,6 +82,10 @@ const SPADINH_CATALOGUE_PARENS = /\s*\((?!(?:part|pt|vol|volume|disc|disk|side|c
 // December's News" has one hidden in front of the dash), and the dash then doesn't read as " - ".
 const SPADINH_INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]/g;
 
+// "Artist - Track | 2009", "Artist - Track | Label": a pipe sets the tune apart from notes about
+// it. The first part that reads as "artist - track" is the tune; with none, the first part is.
+const SPADINH_PIPE = /\s*[|｜]\s*/;
+
 // "artist - track" straight from the title when it already has that shape, which is the norm for
 // record rips; otherwise `artist` (a channel name, or the Discogs release artist) stands in.
 // Discogs writes its dashes as en dashes (–); they come out as plain hyphens so the query reads
@@ -89,6 +93,7 @@ const SPADINH_INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]
 function spadinhSearchQuery(title, artist) {
     const cleaned = spadinhDropReleaseTail((title || "")
         .replace(SPADINH_INVISIBLE, "")
+        .split(SPADINH_PIPE).reduce((kept, part) => (/\s[-–—]\s/.test(kept) ? kept : (/\s[-–—]\s/.test(part) ? part : kept)))
         .replace(SPADINH_TITLE_NOISE, " ")
         .replace(SPADINH_BRACKET_TAG, (tag) => (SPADINH_MIX_WORDS.test(tag) ? tag : " "))
         .replace(SPADINH_LABEL_PARENS, " ")

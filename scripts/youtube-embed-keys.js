@@ -17,7 +17,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // the IFrame API, which leaves the iframe's `src` on whatever loaded first — so the service
     // worker asks here first, and this frame's answer wins over the page's guess.
     if (message.action === "ytCurrentVideoId") {
-        sendResponse({ videoId: ytEmbedVideoId(), title: ytEmbedVideoTitle() });
+        sendResponse({ videoId: ytEmbedVideoId(), title: ytEmbedVideoTitle(), duration: ytEmbedDuration() });
         return false;
     }
 
@@ -58,6 +58,12 @@ function ytEmbedVideoId() {
     const pathMatch = window.location.pathname.match(/\/embed\/([A-Za-z0-9_-]{11})/);
 
     return pathMatch ? pathMatch[1] : null;
+}
+
+function ytEmbedDuration() {
+    const video = document.querySelector("video");
+
+    return video && isFinite(video.duration) ? Math.round(video.duration) : 0;
 }
 
 function ytEmbedVideoTitle() {
@@ -124,7 +130,7 @@ function ytEmbedSearch() {
     spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
-// Shift+D: the same query, to Downloadinh's queue. The service worker asks this frame for the title anyway.
+// Shift+D: the same video, to Downloadinh's queue. The service worker asks this frame for the title anyway.
 function ytEmbedDownload() {
     spadinhSend({ action: "downloadTrack", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }

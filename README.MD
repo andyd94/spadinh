@@ -103,12 +103,13 @@ A bar in the bottom-left corner of the page:
 - **`a` (like)** only ever likes. On an already-liked playing video it says so; a hovered video is liked without that check.
 - **`d` (Downloads)** adds the video to a private playlist named **Downloads**, created on first use. A video already in it is left alone. It uses your YouTube session: no Google Cloud or OAuth setup.
 - On Discogs, `a` and `d` fall back to opening the video in a background YouTube tab, acting there and closing it, when the player can't do it (e.g. signed out because third-party cookies are blocked).
-- **`s` (Google)** searches `artist - track name` in a new tab, with upload noise stripped from the title: `(Official Video)`, `[HD]`, label names, catalogue numbers, years, anything set off by a pipe (`Artist - Track | 2009`), and whatever follows the track in a whole-record title (`Artist - Track - Some EP - Label 015` becomes `Artist - Track`; a part naming a mix is kept). If the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.
-- **`Shift+D` (download)** adds the same query to Downloadinh's queue. Downloadinh looks for the best copy on Soulseek (artist, title, mix and length must match; AIFF, then WAV, FLAC, MP3), falls back to DeezLoadApp, discards fake lossless files, converts FLAC to AIFF and imports the result into Music.
-- The toast follows the tune for up to 20 minutes: queued, searching, downloading with a percentage, then what it got (`downloadinh: got Artist - Title - AIFF 16/44.1 from Soulseek - file.aiff`) or that it couldn't be found. The full picture, with near misses and store links, is on Downloadinh's page at http://localhost:5031.
-- A query with no ` - ` (a `Various` release with nothing highlighted) is turned down: without an artist there's nothing to hold a file to. So is a tune already waiting in the queue.
+- **`s` (Google)** searches `artist - track name` in a new tab. The name comes from Downloadinh's cleaner when Downloadinh is running, so `s` and `Shift+D` agree on what a tune is called. Without it, Spadinh's own cleaning is used: upload noise is stripped from the title (`(Official Video)`, `[HD]`, label names, catalogue numbers, years, anything set off by a pipe, whatever follows the track in a whole-record title), and if the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.
+- **`Shift+D` (download)** adds the tune to Downloadinh's queue. Spadinh sends what it sees and doesn't guess: the title untouched, the channel as a channel, the description, link and length, and on Discogs the release artist. Downloadinh works out artist and title, checks them against Spotify, looks for the best copy on Soulseek (AIFF, then WAV, FLAC, MP3), falls back to DeezLoadApp, discards fake lossless files, converts FLAC to AIFF and imports the result into Music.
+- The toast follows the tune for up to 20 minutes: queued under the name Downloadinh settled on, searching, downloading with a percentage, then what it got (`downloadinh: got Artist - Title - AIFF 16/44.1 from Soulseek - file.aiff`) or that it couldn't be found. The full picture is on Downloadinh's page at http://localhost:5031.
+- When Downloadinh isn't sure of the name (the only artist is a channel name, say) it doesn't search: the toast says `downloadinh: needs a pick for ...`, and the tune waits on Downloadinh's page for you to pick one of Spotify's suggestions or correct it.
+- A tune already waiting in the queue is turned down.
 
-When nothing is playing, `s` and `Shift+D` take the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
+When nothing is playing, `s` and `Shift+D` take the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and for `s` without Downloadinh a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
 
 ## Troubleshooting
 
@@ -116,6 +117,7 @@ When nothing is playing, `s` and `Shift+D` take the highlighted text instead, e.
 | --- | --- |
 | dinhscogvery status says it couldn't reach either address | You're off the tailnet and nothing is serving on `127.0.0.1:8000`. |
 | Toast: downloadinh isn't running | Start it with `downloadinh serve` and press `Shift+D` again. |
+| Toast: downloadinh needs a pick | Downloadinh wasn't sure of the artist or title. Open http://localhost:5031 and pick or correct it. |
 | `a` or `d` on Discogs opens a background tab | Expected fallback when the embedded player is signed out. |
 | `a` or `d` stops working everywhere | YouTube changed its internal request; the toast says why. |
 | Keys do nothing after an update | Reload the extension and refresh the tab. |

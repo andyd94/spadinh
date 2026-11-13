@@ -44,6 +44,15 @@ const YT_ITEM_CHANNEL_SELECTOR = [
     "#channel-name"
 ].join(", ");
 
+const YT_ITEM_DURATION_SELECTOR = [
+    "ytd-thumbnail-overlay-time-status-renderer #text",
+    ".yt-badge-shape__text",
+    ".badge-shape-wiz__text",
+    "badge-shape"
+].join(", ");
+
+const YT_TIMESTAMP = /^\d{1,2}(:\d{2}){1,2}$/;
+
 const YT_VIDEO_LINK_SELECTOR = 'a[href*="watch?v="], a[href*="/shorts/"]';
 // How far up from the pointer an unrecognised layout is searched for the video it sits in.
 const YT_LOOSE_ITEM_DEPTH = 6;
@@ -109,20 +118,26 @@ function ytHoveredVideo() {
         return null;
     }
 
-    const item = pointed.closest(YT_ITEM_SELECTOR) ||
-        (pointed.closest("#movie_player") ? null : ytLooseItem(pointed));
+    // The player and the title, channel and description under it are the playing video's own;
+    // a link in its description isn't a video the pointer is "on".
+    const listed = pointed.closest(YT_ITEM_SELECTOR);
+    const item = listed || (pointed.closest("#movie_player, ytd-watch-metadata") ? null : ytLooseItem(pointed));
     const videoId = item ? ytItemVideoId(item) : null;
 
     if (!videoId || (window.location.pathname === "/watch" && videoId === ytWatchVideoId())) {
         return null;
     }
 
-    const described = ytItemTitle(item) ? item : (ytItemElsewhere(videoId, item) || item);
+    const title = listed ? ytItemTitle(item) : ytLooseTitle(item);
+    const described = title ? item : (ytItemElsewhere(videoId, item) || item);
+    const channel = listed || described !== item ? ytItemRawChannel(described) : "";
 
     return {
         videoId: videoId,
-        title: ytItemTitle(described),
-        channel: ytItemChannel(described),
+        title: title || (described !== item ? ytItemTitle(described) : ""),
+        channel: spadinhArtistOrNone(channel.replace(/\s+-\s+Topic$/i, "")),
+        rawChannel: channel,
+        duration: ytItemDuration(described),
         item: item
     };
 }
@@ -185,11 +200,42 @@ function ytItemTitle(item) {
     return element ? (element.getAttribute("title") || element.textContent || "").trim() : "";
 }
 
-function ytItemChannel(item) {
+// An unrecognised layout's title is read off the video link itself, never off the nearest
+// heading: around a lone link that's the section's ("People mentioned", "Music"), not the video's.
+function ytLooseTitle(item) {
+    for (const link of ytVideoLinks(item)) {
+        const text = (link.getAttribute("title") || link.getAttribute("aria-label") || link.textContent || "")
+            .replace(/\s+/g, " ").trim();
+
+        if (text && !YT_TIMESTAMP.test(text)) {
+            return text;
+        }
+    }
+
+    return "";
+}
+
+// The channel as YouTube prints it, " - Topic" and all: Downloadinh is told it's a channel and
+// makes of that what it can.
+function ytItemRawChannel(item) {
     const element = item.querySelector(YT_ITEM_CHANNEL_SELECTOR);
     const name = element ? (element.getAttribute("title") || element.textContent || "") : "";
 
-    return spadinhArtistOrNone(name.replace(/\s+/g, " ").trim().replace(/\s+-\s+Topic$/i, ""));
+    return name.replace(/\s+/g, " ").trim();
+}
+
+// The length off the thumbnail's badge, in seconds, or 0: "6:41", "1:02:03". Live and "Mix"
+// badges aren't lengths.
+function ytItemDuration(item) {
+    for (const badge of item.querySelectorAll(YT_ITEM_DURATION_SELECTOR)) {
+        const text = badge.textContent.trim();
+
+        if (YT_TIMESTAMP.test(text)) {
+            return text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+        }
+    }
+
+    return 0;
 }
 
 // The hover preview that plays over a thumbnail carries the video's link but not its title; the
@@ -219,26 +265,36 @@ function ytFlashItem(item) {
     );
 }
 
-function ytSearchHovered(hovered) {
-    const query = spadinhSearchQuery(hovered.title, hovered.channel);
+// What's known about a listed video, for the service worker to make a search or a download of.
+// `playing: true` so it goes by this title and not by highlighted text. `artist` is Spadinh's
+// own stand-in for when Downloadinh's cleaner can't be asked.
+function ytHoveredContext(hovered) {
+    return {
+        title: hovered.title,
+        artist: hovered.channel,
+        channel: hovered.rawChannel,
+        url: "https://www.youtube.com/watch?v=" + hovered.videoId,
+        duration: hovered.duration,
+        playing: true
+    };
+}
 
-    if (!query) {
+function ytSearchHovered(hovered) {
+    if (!hovered.title) {
         spadinhShowToast("couldn't read that video's title");
         return;
     }
 
-    window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
-    spadinhShowToast("searching: " + query);
+    spadinhSend(Object.assign({ action: "ytSearch" }, ytHoveredContext(hovered)));
 }
 
-// `playing: true` so the service worker searches for this title and not for highlighted text.
 function ytDownloadHovered(hovered) {
     if (!hovered.title) {
         spadinhShowToast("couldn't read that video's title");
         return;
     }
 
-    spadinhSend({ action: "downloadTrack", title: hovered.title, artist: hovered.channel, playing: true });
+    spadinhSend(Object.assign({ action: "downloadTrack" }, ytHoveredContext(hovered)));
 }
 
 // Unlike the like button, the request doesn't say whether the video was liked already; liking
@@ -260,10 +316,53 @@ function ytSaveHovered(hovered) {
 // The on-page title, not `document.title`: YouTube is a single-page app and the tab title can lag
 // a video change by a beat. `document.title` is the fallback, with its " - YouTube" trimmed.
 function ytVideoTitle() {
-    const element = document.querySelector("h1.ytd-watch-metadata yt-formatted-string, #title h1");
+    const element = document.querySelector("ytd-watch-metadata #title h1") ||
+        document.querySelector("h1.ytd-watch-metadata");
     const text = element ? element.textContent.trim() : "";
 
-    return text || document.title.replace(/\s*-\s*YouTube$/, "").trim();
+    return text || document.title.replace(/^\(\d+\)\s*/, "").replace(/\s*-\s*YouTube$/, "").trim();
+}
+
+function ytRawChannelName() {
+    const element = document.querySelector("ytd-video-owner-renderer #channel-name a");
+
+    return element ? element.textContent.replace(/\s+/g, " ").trim() : "";
+}
+
+// The description as far as the page shows it: all of it once expanded, the first lines before.
+// Not the cards under it ("People mentioned", "Music"), which aren't the uploader's words.
+function ytDescription() {
+    for (const selector of YT_DESCRIPTION_SELECTORS) {
+        const element = document.querySelector(selector);
+        const text = element ? (element.innerText || element.textContent || "").trim() : "";
+
+        if (text) {
+            return text.slice(0, 5000);
+        }
+    }
+
+    return "";
+}
+
+const YT_DESCRIPTION_SELECTORS = [
+    "ytd-watch-metadata #description-inline-expander[is-expanded] yt-attributed-string",
+    "ytd-watch-metadata #attributed-snippet-text",
+    "ytd-watch-metadata #description-inline-expander yt-attributed-string"
+];
+
+function ytVideoContext() {
+    const video = document.querySelector("video");
+    const videoId = ytWatchVideoId();
+
+    return {
+        title: ytVideoTitle(),
+        artist: ytChannelName(),
+        channel: ytRawChannelName(),
+        description: ytDescription(),
+        url: videoId ? "https://www.youtube.com/watch?v=" + videoId : "",
+        duration: video && isFinite(video.duration) ? Math.round(video.duration) : 0,
+        playing: ytIsPlaying()
+    };
 }
 
 // YouTube's auto-generated artist channels are named "Artist - Topic"; the artist is what's
@@ -280,28 +379,14 @@ function ytIsPlaying() {
     return !!video && !video.paused && !video.ended;
 }
 
-// Same precedence as the service worker's: the playing video, else highlighted text, else the
-// (paused) video. The channel name fronts a highlight without an artist of its own.
-function ytSearchQuery() {
-    const selection = ytIsPlaying() ? "" : spadinhSelectionTerms(String(window.getSelection()));
-
-    return spadinhSearchQuery(selection || ytVideoTitle(), ytChannelName());
-}
-
+// Both go through the service worker, which settles what's meant (the playing video, else
+// highlighted text, else the paused video) and asks Downloadinh's cleaner what to call it.
 function ytSearchVideo() {
-    const query = ytSearchQuery();
-
-    if (!query) {
-        spadinhShowToast("couldn't read the video title");
-        return;
-    }
-
-    window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
-    spadinhShowToast("searching: " + query);
+    spadinhSend(Object.assign({ action: "ytSearch" }, ytVideoContext()));
 }
 
 function ytDownloadVideo() {
-    spadinhSend({ action: "downloadTrack", title: ytVideoTitle(), artist: ytChannelName(), playing: ytIsPlaying() });
+    spadinhSend(Object.assign({ action: "downloadTrack" }, ytVideoContext()));
 }
 
 // `like-button-view-model` is the like half of the segmented like/dislike control; the aria-label

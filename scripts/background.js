@@ -757,22 +757,30 @@ function readPlayerState() {
         videoId: data.video_id,
         title: data.title || "",
         playing: !!video && !video.paused && !video.ended,
-        started: !!video && video.currentTime > 0
+        started: !!video && video.currentTime > 0,
+        duration: video && isFinite(video.duration) ? video.duration : 0
     };
 }
 
 // --- Downloading ---------------------------------------------------------------------------------
 //
-// Shift+D on a Discogs page, in its player, or on YouTube: the same "artist - track" query as `s`,
-// added to Downloadinh's queue (github.com/andyd94/downloadinh, `downloadinh serve`, this Mac
-// only). Downloadinh does the rest - Soulseek through slskd, DeezLoadApp if that has no lossless
-// copy, the fake-lossless check, AIFF conversion and the import into Music - and shows it all on
-// its own page. From here the tune is handed over and then watched for a while, so the toast can
-// say how it's going and how it ended.
+// Shift+D on a Discogs page, in its player, or on YouTube: the tune is added to Downloadinh's
+// queue (github.com/andyd94/downloadinh, `downloadinh serve`, this Mac only). Downloadinh does
+// the rest - working out artist and title, Soulseek through slskd, DeezLoadApp if that has no
+// lossless copy, the fake-lossless check, AIFF conversion and the import into Music - and shows
+// it all on its own page. From here the tune is handed over and then watched for a while, so the
+// toast can say how it's going and how it ended.
+//
+// What's handed over is what was seen, not a guess at "artist - track": the title untouched, the
+// channel as a channel, the description, link and length (`resolveSearch`'s `item`). Downloadinh
+// has the one cleaner, checks the name against Spotify, and holds a doubtful one on its page for
+// a pick rather than searching for the wrong thing.
 
 const DOWNLOADINH_URL = "http://127.0.0.1:5031";
 const DOWNLOADINH_POLL_MS = 2000;
 const DOWNLOADINH_WATCH_MS = 20 * 60 * 1000;
+const DOWNLOADINH_CLEAN_TIMEOUT_MS = 1500;
+const DOWNLOADINH_DESCRIPTION_MAX = 5000;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action !== "downloadTrack") {
@@ -781,17 +789,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    resolveSearchQuery(originTabId, message, senderOnDiscogs(sender))
-        .then((query) => {
-            if (!query) {
+    resolveSearch(originTabId, message, senderOnDiscogs(sender))
+        .then((found) => {
+            if (!found.item) {
                 notifyPage(originTabId, "nothing playing and nothing highlighted");
                 return;
             }
 
-            return queueInDownloadinh(query).then((jobId) => {
-                notifyPage(originTabId, "downloadinh: queued " + query + "…");
+            return queueInDownloadinh(found.item, found.query).then((queued) => {
+                notifyPage(originTabId, "downloadinh: queued " + queued.line + "…");
 
-                return watchDownloadinhJob(jobId, (text) => notifyPage(originTabId, text));
+                return watchDownloadinhJob(queued.id, (text) => notifyPage(originTabId, text));
             });
         })
         .catch((error) => notifyPage(originTabId, error.message));
@@ -800,15 +808,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-async function downloadinhFetch(path, body) {
+async function downloadinhFetch(path, body, timeoutMs) {
     let response;
 
     try {
-        response = await fetch(DOWNLOADINH_URL + path, body === undefined ? {} : {
+        const options = body === undefined ? {} : {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
-        });
+        };
+
+        if (timeoutMs) {
+            options.signal = AbortSignal.timeout(timeoutMs);
+        }
+
+        response = await fetch(DOWNLOADINH_URL + path, options);
     } catch (error) {
         throw new Error("downloadinh isn't running - start it with: downloadinh serve");
     }
@@ -820,18 +834,40 @@ async function downloadinhFetch(path, body) {
     return response.json();
 }
 
-// Resolves with the new job's id. Downloadinh turns down a line it can't use - no " - " to tell
-// artist from title, or a tune already waiting in its queue - and says why.
-async function queueInDownloadinh(query) {
-    const answer = await downloadinhFetch("/api/add", { lines: [query], origin: "Spadinh" });
+// Resolves with `{ id, line }`: the new job and the name Downloadinh settled on for it. A tune
+// already waiting in its queue is turned down, and it says so.
+//
+// A Downloadinh from before it took raw items ignores them and adds nothing; it gets `query`,
+// Spadinh's own "artist - track" guess, as a plain line instead, as it always did.
+async function queueInDownloadinh(item, query) {
+    let answer = await downloadinhFetch("/api/add", { origin: "Spadinh", items: [item] });
+    let line = answer.items && answer.items[0] ? answer.items[0].line : "";
+
+    if (!(answer.ids && answer.ids.length) && !(answer.rejected && answer.rejected.length) && query) {
+        answer = await downloadinhFetch("/api/add", { origin: "Spadinh", lines: [query] });
+        line = query;
+    }
 
     if (answer.ids && answer.ids.length) {
-        return answer.ids[0];
+        return { id: answer.ids[0], line: line || query || item.title };
     }
 
     const rejected = answer.rejected && answer.rejected[0];
+    const what = (rejected && rejected.line) || query || item.title;
 
-    throw new Error("downloadinh: not queued, " + (rejected ? rejected.reason : "no reason given") + " (" + query + ")");
+    throw new Error("downloadinh: not queued, " + (rejected ? rejected.reason : "no reason given") + " (" + what + ")");
+}
+
+// "Artist - Title (Mix)" from Downloadinh's cleaner, the same one a download goes through, or ""
+// when it isn't running, is too old to have one, or makes nothing of the title. Nothing is queued.
+async function cleanViaDownloadinh(item) {
+    try {
+        const answer = await downloadinhFetch("/api/clean", item, DOWNLOADINH_CLEAN_TIMEOUT_MS);
+
+        return answer && typeof answer.query === "string" ? answer.query.trim() : "";
+    } catch (error) {
+        return "";
+    }
 }
 
 // Follows one job on Downloadinh's list, reporting each change of stage and then the outcome.
@@ -862,6 +898,7 @@ async function watchDownloadinhJob(jobId, report) {
             return;
         }
 
+        // Anything else is an outcome, "choose" included: Downloadinh is holding the tune for a pick.
         if (job.status !== "queued" && job.status !== "working") {
             report(downloadinhOutcome(job));
             return;
@@ -903,6 +940,13 @@ function downloadinhOutcome(job) {
         return "downloadinh: got " + tune + (what ? " - " + what : "") + (job.detail ? " - " + job.detail : "") + flags;
     }
 
+    if (job.status === "choose") {
+        // The first sentence of the reason; the page has the rest, and the suggestions.
+        const why = (job.detail || "").replace(/^Not searched:\s*/i, "").split(/\.\s/)[0].replace(/\.$/, "");
+
+        return "downloadinh: needs a pick for " + tune + (why ? " (" + why + ")" : "") + " - open localhost:5031";
+    }
+
     if (job.status === "missing") {
         return "downloadinh: couldn't find " + tune + " - near misses and store links are on its page";
     }
@@ -916,8 +960,10 @@ async function resolveCurrentVideoId(tabId, pageGuess) {
     return embed ? embed.videoId : pageGuess;
 }
 
-// `s` on a Discogs page or in its player: a Google search for the loaded video as "artist - track",
-// opened from here so an iframe never has to open a popup itself.
+// `s`: a Google search for the video as "artist - track", opened from here so an iframe never has
+// to open a popup itself. The name comes from Downloadinh's cleaner when it's running, so `s` and
+// Shift+D agree on what the tune is called; Spadinh's own guess is the fallback, and `s` works
+// without Downloadinh.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action !== "ytSearch") {
         return false;
@@ -925,8 +971,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const originTabId = sender.tab ? sender.tab.id : null;
 
-    resolveSearchQuery(originTabId, message, senderOnDiscogs(sender))
-        .then((query) => {
+    resolveSearch(originTabId, message, senderOnDiscogs(sender))
+        .then(async (found) => {
+            const query = (found.item && await cleanViaDownloadinh(found.item)) || found.query;
+
             if (!query) {
                 notifyPage(originTabId, "nothing playing and nothing highlighted");
                 return;
@@ -941,38 +989,80 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// What `s` searches for and Shift+D downloads. A playing video wins; otherwise text highlighted on the page,
-// so a tracklist line can be searched without playing it; otherwise whatever video is loaded
-// (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
-// see into: YouTube watch pages, and the embed frame answering for itself.
+// What `s` searches for and Shift+D downloads, two ways: `item`, what was seen, for Downloadinh to
+// make a name of (null when there's nothing to go on), and `query`, Spadinh's own "artist - track"
+// guess, for when Downloadinh can't be asked.
 //
-// A highlight that carries no " - " of its own gets an artist in front, like a video title would:
-// the one the sender gave (the channel on YouTube, the release artist on Discogs), or, when the
-// key was pressed inside the player and the embed frame knows no artist, the Discogs page's own
-// heading. Single-artist releases list bare track names, which is exactly this case.
-async function resolveSearchQuery(tabId, message, onDiscogs) {
+// A playing video wins; otherwise text highlighted on the page, so a tracklist line can be
+// searched without playing it; otherwise whatever video is loaded (paused counts), or the page's
+// guess. `message.playing` covers pages the player probe can't see into: YouTube pages, and the
+// embed frame answering for itself.
+//
+// In `query`, a highlight that carries no " - " of its own gets an artist in front, like a video
+// title would: the one the sender gave (the channel on YouTube, the release artist on Discogs),
+// or, when the key was pressed inside the player and the embed frame knows no artist, the Discogs
+// page's own heading. In `item` nothing is put in front of anything: the channel goes as
+// `channel`, and `artist` is only ever the Discogs release artist, which is known to be one.
+async function resolveSearch(tabId, message, onDiscogs) {
     const embed = await askEmbedFrame(tabId);
     const playing = (embed && embed.playing) || message.playing === true;
-    let page = null;
+    const page = !playing || onDiscogs ? await readPageContext(tabId) : null;
+    const base = { source: onDiscogs ? "Discogs" : "YouTube" };
+
+    if (onDiscogs && page.releaseArtist) {
+        base.artist = page.releaseArtist;
+    }
+
+    if (!onDiscogs && message.channel) {
+        base.channel = message.channel;
+    }
 
     if (!playing) {
-        page = await readPageContext(tabId);
-
         const selection = spadinhSelectionTerms(page.selection);
 
         if (selection) {
-            return spadinhSearchQuery(selection, message.artist || (onDiscogs ? page.artist : ""));
+            return {
+                query: spadinhSearchQuery(selection, message.artist || (onDiscogs ? page.artist : "")),
+                // Less the tracklist position ("A2") and Discogs' "(2)", which Spadinh knows for
+                // what they are; nothing else about the text is second-guessed.
+                item: Object.assign({ title: selection }, base)
+            };
         }
     }
 
     const title = (embed && embed.title) || message.title || "";
 
     // A Discogs page with no video and no highlight: the record itself, "Artist - Title".
-    if (!title && onDiscogs && page && page.releaseTitle) {
-        return spadinhSearchQuery(page.releaseTitle, page.artist);
+    if (!title && onDiscogs && page.releaseTitle) {
+        return {
+            query: spadinhSearchQuery(page.releaseTitle, page.artist),
+            item: Object.assign({ title: page.releaseTitle }, base)
+        };
     }
 
-    return spadinhSearchQuery(title, message.artist || "");
+    if (!title) {
+        return { query: "", item: null };
+    }
+
+    // The rest describes the video itself, so it only goes with the video's own title.
+    const item = Object.assign({ title: title }, base);
+    const videoId = embed && embed.videoId;
+    const url = message.url || (videoId ? "https://www.youtube.com/watch?v=" + videoId : "");
+    const duration = Math.round(Number(message.duration || (embed && embed.duration) || 0));
+
+    if (message.description) {
+        item.description = String(message.description).slice(0, DOWNLOADINH_DESCRIPTION_MAX);
+    }
+
+    if (url) {
+        item.url = url;
+    }
+
+    if (duration > 0) {
+        item.duration = duration;
+    }
+
+    return { query: spadinhSearchQuery(title, message.artist || ""), item: item };
 }
 
 function senderOnDiscogs(sender) {
@@ -987,7 +1077,7 @@ function senderOnDiscogs(sender) {
 // key was pressed in - with the player focused, the highlight is still on the page around it.
 // Mirrors discogs-video-keys.js's heading reading, which can't be called from here.
 async function readPageContext(tabId) {
-    const empty = { selection: "", artist: "", releaseTitle: "" };
+    const empty = { selection: "", artist: "", releaseArtist: "", releaseTitle: "" };
 
     if (tabId === null) {
         return empty;
@@ -1003,6 +1093,7 @@ async function readPageContext(tabId) {
 
                 return {
                     selection: String(window.getSelection ? window.getSelection() : ""),
+                    onDiscogs: /(^|\.)discogs\.com$/.test(window.location.hostname),
                     artist: match ? match[1].trim() : "",
                     releaseTitle: match ? match[2].trim() : text
                 };
@@ -1013,6 +1104,9 @@ async function readPageContext(tabId) {
         return {
             selection: page.selection || "",
             artist: spadinhArtistOrNone(page.artist),
+            // As Discogs prints it, less the "(2)" it numbers namesakes with. "Various" stays:
+            // Downloadinh knows to ignore it.
+            releaseArtist: page.onDiscogs ? (page.artist || "").replace(/\s*\(\d+\)$/, "") : "",
             releaseTitle: page.releaseTitle || ""
         };
     } catch (error) {

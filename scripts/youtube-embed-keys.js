@@ -124,7 +124,7 @@ function ytEmbedSearch() {
     spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
-// Shift+S: the same query, to Soulseek (found and queued through slskd). The service worker asks this frame for the title anyway.
+// Shift+D: the same query, to Soulseek (found and queued through slskd). The service worker asks this frame for the title anyway.
 function ytEmbedSoulseek() {
     spadinhSend({ action: "slskSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }

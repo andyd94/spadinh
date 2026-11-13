@@ -11,7 +11,7 @@ Chrome extension for digging on Discogs and YouTube: filter listings, triage rel
 | `a` | Like the video | ✓ | ✓ | ✓ |
 | `d` | Add the video to the **Downloads** playlist | ✓ | ✓ | ✓ |
 | `s` | Google the track as `artist - track name` | ✓ | ✓ | ✓ |
-| `Shift+S` | Find the track on Soulseek and queue the best file for download | ✓ | ✓ | ✓ |
+| `Shift+D` | Find the track on Soulseek and queue the best file for download | ✓ | ✓ | ✓ |
 | `Ctrl+Shift` | Run the ratio filter | seller, artist, label, search | | |
 
 On Discogs the video is the one playing. On YouTube it is the one under the mouse pointer, or the one playing when the pointer is on none.
@@ -32,7 +32,7 @@ To update:
 
 ### Soulseek helper (macOS only, once per Mac)
 
-`Shift+S` needs a small helper Chrome can launch. It searches Soulseek through [slskd](https://github.com/slskd/slskd) using [Downloadinh](https://github.com/andyd94/downloadinh)'s code, and reads slskd's address and API key from Downloadinh's `downloadinh.toml`, so nothing is configured in the extension.
+`Shift+D` needs a small helper Chrome can launch. It searches Soulseek through [slskd](https://github.com/slskd/slskd) using [Downloadinh](https://github.com/andyd94/downloadinh)'s code, and reads slskd's address and API key from Downloadinh's `downloadinh.toml`, so nothing is configured in the extension.
 
 1. Set up Downloadinh as its README says: a checkout, a Python 3.11+ venv with it installed, and `downloadinh.toml` with slskd's `api_key`.
 2. From the extension folder, run `bash native/install.sh` (no sudo). It looks for Downloadinh in a `downloadinh` folder next to this one (otherwise pass the path: `bash native/install.sh ~/code/downloadinh`) and for its Python in `.venv` or `venv` inside it, then `~/.venvs/downloadinh` (or set `DOWNLOADINH_PYTHON`). Re-run it if either folder moves.
@@ -97,18 +97,18 @@ A bar in the bottom-left corner of the page:
 
 ## YouTube keys
 
-`a`, `d`, `s` and `Shift+S` act on the video playing on a YouTube video page or in a Discogs release page's embedded player, whichever has focus.
+`a`, `d`, `s` and `Shift+D` act on the video playing on a YouTube video page or in a Discogs release page's embedded player, whichever has focus.
 
 - **Hovering** on YouTube points the keys at another video: a row of the liked list or any playlist, the playlist panel beside the player, the sidebar, a search result, a home or channel tile. This works on any YouTube page, with or without a video playing. The row flashes and the toast names the video. With the pointer on the player, on the playing video's own row or on no video, the keys act on the playing video.
 - **`a` (like)** only ever likes. On an already-liked playing video it says so; a hovered video is liked without that check.
 - **`d` (Downloads)** adds the video to a private playlist named **Downloads**, created on first use. A video already in it is left alone. It uses your YouTube session: no Google Cloud or OAuth setup.
 - On Discogs, `a` and `d` fall back to opening the video in a background YouTube tab, acting there and closing it, when the player can't do it (e.g. signed out because third-party cookies are blocked).
 - **`s` (Google)** searches `artist - track name` in a new tab, with upload noise stripped from the title: `(Official Video)`, `[HD]`, label names, catalogue numbers, years. If the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.
-- **`Shift+S` (Soulseek)** searches Soulseek for the same query and queues the best file in slskd. The choice is Downloadinh's: lead artist, title and mix name must match, and the length must be within 2 seconds of Spotify's when Spotify is configured there and knows the track. Among files that pass it's AIFF, then WAV, FLAC and 320/VBR MP3, highest resolution up to 24/48, free upload slot first. The toast shows what was queued, e.g. `soulseek: queued AIFF 16/44.1 from user (free slot) - file.aiff`.
+- **`Shift+D` (Soulseek)** searches Soulseek for the same query and queues the best file in slskd. The choice is Downloadinh's: lead artist, title and mix name must match, and the length must be within 2 seconds of Spotify's when Spotify is configured there and knows the track. Among files that pass it's AIFF, then WAV, FLAC and 320/VBR MP3, highest resolution up to 24/48, free upload slot first. The toast shows what was queued, e.g. `soulseek: queued AIFF 16/44.1 from user (free slot) - file.aiff`.
 - When no file passes, nothing is downloaded and the toast names the closest files and why each failed (`mix differs`, `MP3 192 kbps CBR is below 320`). A query with no ` - ` (a `Various` release with nothing highlighted) isn't searched: without an artist there's nothing to hold a file to.
 - The file lands in slskd's downloads folder and stays there. Downloadinh's after-download steps (fake-lossless check, FLAC to AIFF, the move into Music) only run when Downloadinh does the downloading.
 
-When nothing is playing, `s` and `Shift+S` search the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
+When nothing is playing, `s` and `Shift+D` search the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
 
 ## Troubleshooting
 

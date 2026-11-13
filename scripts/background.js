@@ -763,7 +763,7 @@ function readPlayerState() {
 
 // --- Soulseek ----------------------------------------------------------------------------------------
 //
-// Shift+S on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
+// Shift+D on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
 // query as `s`, handed to the native host in native/ (registered by native/install.sh). The host
 // searches Soulseek through slskd with Downloadinh's matching and ranking, queues the best file
 // for download and reports back; when nothing passes the rules it downloads nothing and names the
@@ -868,7 +868,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// What `s` and Shift+S search for. A playing video wins; otherwise text highlighted on the page,
+// What `s` and Shift+D search for. A playing video wins; otherwise text highlighted on the page,
 // so a tracklist line can be searched without playing it; otherwise whatever video is loaded
 // (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
 // see into: YouTube watch pages, and the embed frame answering for itself.

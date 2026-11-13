@@ -1,5 +1,5 @@
 // YouTube: `s` searches Google for a video as "artist - track", `a` likes it, `d` adds it to the
-// Downloads playlist, `Shift+S` finds it on Soulseek and queues the download. The video is the one
+// Downloads playlist, `Shift+D` finds it on Soulseek and queues the download. The video is the one
 // under the mouse pointer - a row of the liked list, the playlist panel, the sidebar, a search
 // result - and, on a watch page with the pointer on none, the one playing.
 
@@ -52,7 +52,7 @@ ytKeysInit();
 
 function ytKeysInit() {
     // Capture phase, so this runs ahead of YouTube's own hotkey manager. None of `s`, `a`, `d` or
-    // `Shift+S` is a YouTube shortcut today (`l` was, which is why like moved off it), and
+    // `Shift+D` is a YouTube shortcut today (`l` was, which is why like moved off it), and
     // stopping the event here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
 

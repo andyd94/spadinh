@@ -1,103 +1,25 @@
-#!/usr/bin/python3
-# Chrome native messaging host: types a query into SoulseekQt's search box and presses Search.
+# Chrome native messaging host: finds the best copy of a track on Soulseek and queues it in slskd.
 #
-# Chrome starts this for each message (chrome.runtime.sendNativeMessage), so it reads one
-# {"query": "..."} from stdin, answers {"ok": bool, "text": "..."} and exits. The work is done by an
-# AppleScript through System Events: SoulseekQt has no API, URL scheme or command line, but its
-# window is a small accessibility tree, so the search field and button are found by walking it
-# rather than by a nested path that would break with the next Qt build.
+# Chrome starts this through the launcher install.sh writes (native/soulseek-host), which runs it
+# on Downloadinh's Python from Downloadinh's folder: the search, the matching rules and the format
+# ranking are all Downloadinh's own (github.com/andyd94/downloadinh), and so is the config - the
+# slskd address and API key come from its downloadinh.toml, nothing is kept in the extension.
 #
-# macOS attributes the automation to Chrome, so the first run asks to let Google Chrome control the
-# computer (System Settings > Privacy & Security > Accessibility). Nothing happens until that's
-# allowed; the error says so.
+# One {"query": "Artist - Title (Mix)"} comes in over the port (chrome.runtime.connectNative).
+# {"progress": true, "text": ...} lines go back while the search runs, then one final
+# {"ok": bool, "text": ...}, and the host exits.
 #
-# Registered by install.sh; /usr/bin/python3 because Chrome launches hosts with a minimal PATH.
+# A file is queued only when it passes Downloadinh's rules: lead artist in the path, the same title
+# and mix name, a wanted format, and - when Spotify is configured and knows the track - a length
+# within the tolerance. Otherwise nothing is downloaded and the closest files are named with why
+# they failed. The download itself is left to slskd; it lands in slskd's downloads folder.
 
 import json
-import re
+import os
 import struct
-import subprocess
 import sys
 
-OSASCRIPT_TIMEOUT_S = 30
-
-
-# Soulseek matches the query's words against filenames, so punctuation only ever gets in the way:
-# "Klang & Spallek" wouldn't find "Klang and Spallek", and "-word" means exclude. Everything that
-# isn't a letter, digit or space goes; "(Soultek Mix)" still finds "(Soultek Mix)" as two words.
-def soulseek_terms(query):
-    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]|_", " ", query)).strip()
-
-
-SCRIPT = r'''
--- Qt only exposes the widgets of the tab that's showing, so each stage walks the window afresh:
--- the main "Search" tab first, then its "Manual Searches" sub-tab, then the box and button.
-on firstElement(w, wantedRole, wantedName)
-    tell application "System Events"
-        set allElements to entire contents of w
-        repeat with elRef in allElements
-            set el to contents of elRef
-            if role of el is wantedRole then
-                if wantedName is missing value then return el
-                if name of el is wantedName then return el
-            end if
-        end repeat
-    end tell
-    return missing value
-end firstElement
-
--- Selects a tab (a radio button in SoulseekQt's tab strips) unless it's already the active one.
-on selectTab(w, tabName)
-    set theTab to my firstElement(w, "AXRadioButton", tabName)
-    if theTab is missing value then return false
-    tell application "System Events"
-        if value of theTab is not 1 then
-            click theTab
-            delay 0.3
-        end if
-    end tell
-    return true
-end selectTab
-
-on run argv
-    set theQuery to item 1 of argv
-
-    tell application "SoulseekQt" to activate
-
-    tell application "System Events"
-        tell process "SoulseekQt"
-            -- Activation also launches the app when it's closed; give its window time to appear.
-            set tries to 0
-            repeat until (count of windows) > 0 or tries > 40
-                delay 0.25
-                set tries to tries + 1
-            end repeat
-            if (count of windows) = 0 then error "SoulseekQt has no window open"
-            set w to window 1
-        end tell
-    end tell
-
-    my selectTab(w, "Search")
-    my selectTab(w, "Manual Searches")
-
-    -- The first, and widest, combo box is the search field; the others are "search target"
-    -- and saved filters.
-    set searchBox to my firstElement(w, "AXComboBox", missing value)
-    set searchButton to my firstElement(w, "AXButton", "Search")
-
-    if searchBox is missing value or searchButton is missing value then
-        error "couldn't find SoulseekQt's search box - is the Search tab available?"
-    end if
-
-    tell application "System Events"
-        -- The combo box ignores a value set on itself; its line edit (the text field inside it)
-        -- takes the text, and Search then runs it.
-        set value of text field 1 of searchBox to theQuery
-        delay 0.1
-        click searchButton
-    end tell
-end run
-'''
+SOULSEEK = "soulseek: "
 
 
 def read_message():
@@ -118,48 +40,136 @@ def send(message):
     sys.stdout.buffer.flush()
 
 
-def describe_failure(stderr):
-    text = (stderr or "").strip()
+def progress(text):
+    send({"progress": True, "text": SOULSEEK + text})
 
-    if "assistive access" in text or "-1719" in text or "-25211" in text:
-        return ("macOS won't let Chrome control SoulseekQt yet - allow Google Chrome under "
-                "System Settings > Privacy & Security > Accessibility, then press Shift+S again")
 
-    if "-1743" in text or "not permitted" in text.lower():
-        return ("macOS blocked Chrome from automating SoulseekQt - allow it under "
-                "System Settings > Privacy & Security > Automation")
+def file_name(f):
+    return f.filename.replace("\\", "/").rsplit("/", 1)[-1]
 
-    # osascript prefixes its own errors with the script position; keep what comes after.
-    text = re.sub(r"^\d+:\d+:\s*(execution error:\s*)?", "", text)
 
-    return "SoulseekQt search failed: " + (text or "unknown error")
+def describe_queued(candidate):
+    f = candidate.file
+    slot = "free slot" if f.has_free_slot else "queue of %d" % f.queue_length
+
+    return "queued %s from %s (%s) - %s" % (candidate.quality.label, f.username, slot, file_name(f))
+
+
+def describe_miss(candidate):
+    reasons = list(candidate.match.reasons)
+
+    if not candidate.quality.acceptable:
+        reasons.append(candidate.quality.reason)
+
+    return "%s [%s]" % (file_name(candidate.file), ", ".join(reasons))
+
+
+def describe_search_failure(url, error):
+    if "Connection refused" in error or "Failed to establish" in error:
+        return "can't search slskd - nothing is answering at %s, is it running?" % url
+
+    if "401" in error or "403" in error:
+        return "can't search slskd - it turned down the API key in downloadinh.toml"
+
+    return "can't search slskd at %s (%s)" % (url, error[:200])
+
+
+def run(query, soulseek=None, spotify=None, cfg=None):
+    """Search, pick and queue. Returns the final (ok, text); `soulseek`, `spotify` and `cfg` are
+    only passed in by tests."""
+    try:
+        from downloadinh import config as config_mod
+        from downloadinh.models import Track, TrackResult
+        from downloadinh.pipeline import Downloadinh, Settings, search_query
+        from downloadinh.textnorm import parse_line
+    except ImportError as error:
+        return False, "can't load Downloadinh (%s) - run native/install.sh" % error
+
+    try:
+        parsed = parse_line(query)
+    except ValueError:
+        parsed = None
+
+    if not parsed:
+        # Without an artist there's nothing to hold a file to, and the wrong tune would download.
+        return False, "need \"artist - title\" to pick a file, got \"%s\"" % query
+
+    artists, title, mix = parsed
+    track = Track(artists=artists, title=title, mix=mix, source_line=query)
+
+    if cfg is None:
+        try:
+            cfg = config_mod.load(os.environ.get("DOWNLOADINH_CONFIG") or None)
+        except Exception as error:
+            return False, "can't read downloadinh.toml: %s" % error
+
+    if soulseek is None:
+        if not cfg.slskd_api_key:
+            return False, "no slskd API key in downloadinh.toml"
+
+        from downloadinh.slskd import SlskdClient
+
+        soulseek = SlskdClient(cfg.slskd_url, cfg.slskd_api_key, cfg.slskd_downloads)
+
+    if spotify is None and cfg.spotify_client_id and cfg.spotify_client_secret:
+        from downloadinh.spotify import SpotifyClient
+
+        spotify = SpotifyClient(cfg.spotify_client_id, cfg.spotify_client_secret)
+
+    # A dry run is Downloadinh's own search-match-rank with nothing downloaded: it hands back the
+    # best file, or the nearest misses. Queueing is done here so the key press returns straight
+    # away instead of waiting out the transfer.
+    settings = Settings(tolerance_s=cfg.tolerance_s, search_timeout_s=cfg.search_timeout_s, dry_run=True)
+    app = Downloadinh(soulseek, spotify, None, settings)
+    result = TrackResult(track=track)
+
+    track = result.track = app.resolve(track, result)
+    length = "" if track.duration is None else ", %d:%02d" % divmod(round(track.duration), 60)
+    progress("searching %s%s…" % (search_query(track), length))
+
+    if not app.try_soulseek(track, result):
+        failed = [n for n in result.notes if n.startswith("Soulseek search failed")]
+
+        if failed:
+            return False, describe_search_failure(cfg.slskd_url, failed[0].split(": ", 1)[-1])
+
+        text = "nothing good for %s" % track.display
+
+        if result.near_misses:
+            text += " - closest: " + "; ".join(describe_miss(c) for c in result.near_misses)
+        else:
+            text += " - " + next((n[len("Soulseek: "):] for n in result.notes if n.startswith("Soulseek: ")),
+                                 "no results")
+
+        return False, text
+
+    try:
+        soulseek.enqueue(result.chosen.file)
+    except Exception as error:
+        return False, "found %s but slskd wouldn't queue it (%s)" % (file_name(result.chosen.file), error)
+
+    text = describe_queued(result.chosen)
+
+    if track.duration is None:
+        text += " - length not checked"
+
+    return True, text
 
 
 def main():
     message = read_message()
-    query = soulseek_terms(str(message.get("query") or ""))
+    query = " ".join(str(message.get("query") or "").split())
 
     if not query:
         send({"ok": False, "text": "nothing to search for"})
         return
 
     try:
-        result = subprocess.run(
-            ["/usr/bin/osascript", "-", query],
-            input=SCRIPT,
-            capture_output=True,
-            text=True,
-            timeout=OSASCRIPT_TIMEOUT_S,
-        )
-    except subprocess.TimeoutExpired:
-        send({"ok": False, "text": "SoulseekQt didn't respond in time"})
-        return
+        ok, text = run(query)
+    except Exception as error:  # the page should hear about anything, not see the port drop
+        ok, text = False, "failed: %s" % error
 
-    if result.returncode != 0:
-        send({"ok": False, "text": describe_failure(result.stderr)})
-        return
-
-    send({"ok": True, "text": "soulseek: searching " + query})
+    send({"ok": ok, "text": SOULSEEK + text})
 
 
 if __name__ == "__main__":

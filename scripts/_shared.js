@@ -2,6 +2,8 @@
 
 const SPADINH_TOAST_ID = "spadinh-toast";
 const SPADINH_TOAST_MS = 2500;
+const SPADINH_TOAST_MAX_MS = 12000;
+const SPADINH_TOAST_PENDING_MS = 45000;
 
 let spadinhToastTimer = null;
 
@@ -34,6 +36,8 @@ function spadinhShowToast(text) {
             "font: 600 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4)",
             "transition: opacity 0.2s ease",
+            "max-width: min(560px, calc(100vw - 32px))",
+            "overflow-wrap: anywhere",
             "pointer-events: none"
         ].join("; ");
         document.body.appendChild(toast);
@@ -43,7 +47,18 @@ function spadinhShowToast(text) {
     toast.style.opacity = "1";
 
     clearTimeout(spadinhToastTimer);
-    spadinhToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, SPADINH_TOAST_MS);
+    spadinhToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, spadinhToastDuration(text));
+}
+
+// Long enough to read: a Soulseek result names a file and runs to a couple of lines. A toast
+// ending in "…" is work in progress (a Soulseek search takes some twenty seconds) and stays up
+// until its result replaces it.
+function spadinhToastDuration(text) {
+    if (/…$/.test(text)) {
+        return SPADINH_TOAST_PENDING_MS;
+    }
+
+    return Math.min(SPADINH_TOAST_MAX_MS, Math.max(SPADINH_TOAST_MS, text.length * 70));
 }
 
 // Upload-title noise that isn't part of the track name. Deliberately narrow: "(Original Mix)",
@@ -138,7 +153,7 @@ function spadinhIsSoulseekChord(event) {
     return event.key === "S" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 
-// Same "artist - track" query as `s`, searched in SoulseekQt instead of Google (see background.js).
+// Same "artist - track" query as `s`, found on Soulseek and queued for download instead of googled (see background.js).
 function spadinhRequestSoulseekSearch(title, artist) {
     spadinhSend({ action: "slskSearch", title: title, artist: artist });
 }

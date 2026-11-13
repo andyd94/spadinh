@@ -1,6 +1,6 @@
 // Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `d`
 // adds it to the Downloads playlist there, `s`
-// searches Google for it as "artist - track", `Shift+S` searches SoulseekQt for the same. All go
+// searches Google for it as "artist - track", `Shift+S` finds the same on Soulseek and queues the download. All go
 // through the service worker, which asks the player frame what's actually loaded; progress and
 // results come back here as toasts.
 

@@ -761,12 +761,13 @@ function readPlayerState() {
     };
 }
 
-// --- Searching SoulseekQt --------------------------------------------------------------------------
+// --- Soulseek ----------------------------------------------------------------------------------------
 //
 // Shift+S on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
-// query as `s`, typed into SoulseekQt's search box. SoulseekQt has no API, so Chrome hands the
-// query to the native host in native/ (registered by native/install.sh), which drives the app's
-// search field through macOS accessibility and reports back.
+// query as `s`, handed to the native host in native/ (registered by native/install.sh). The host
+// searches Soulseek through slskd with Downloadinh's matching and ranking, queues the best file
+// for download and reports back; when nothing passes the rules it downloads nothing and names the
+// closest files instead.
 
 const SLSK_HOST = "com.spadinh.soulseek";
 
@@ -786,7 +787,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             notifyPage(originTabId, "soulseek: " + query + "…");
 
-            return searchInSoulseek(query).then((text) => notifyPage(originTabId, text));
+            return searchInSoulseek(query, (text) => notifyPage(originTabId, text))
+                .then((text) => notifyPage(originTabId, text));
         })
         .catch((error) => notifyPage(originTabId, error.message));
 
@@ -794,16 +796,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// `lastError` here nearly always means the host isn't registered for this extension id, or the
-// registration points at a path that's moved — both fixed by re-running native/install.sh.
-function searchInSoulseek(query) {
+// A port rather than a one-off message: the search takes slskd some twenty seconds, an open native
+// port keeps the service worker alive for it, and the host can say what it's doing meanwhile
+// (`progress` messages) before its one final answer.
+//
+// A port that drops without an answer nearly always means the host isn't registered for this
+// extension id, or the registration points at a path that's moved — both fixed by re-running
+// native/install.sh.
+function searchInSoulseek(query, onProgress) {
     return new Promise((resolve, reject) => {
-        chrome.runtime.sendNativeMessage(SLSK_HOST, { query: query }, (response) => {
-            if (chrome.runtime.lastError) {
-                reject(new Error("can't reach the Soulseek bridge (" + chrome.runtime.lastError.message +
-                    ") - run native/install.sh"));
+        const port = chrome.runtime.connectNative(SLSK_HOST);
+        let answered = false;
+
+        port.onMessage.addListener((response) => {
+            if (response && response.progress) {
+                onProgress(response.text);
                 return;
             }
+
+            answered = true;
+            port.disconnect();
 
             if (!response || !response.ok) {
                 reject(new Error(response && response.text ? response.text : "no reply from the Soulseek bridge"));
@@ -812,6 +824,16 @@ function searchInSoulseek(query) {
 
             resolve(response.text);
         });
+
+        port.onDisconnect.addListener(() => {
+            const reason = chrome.runtime.lastError ? chrome.runtime.lastError.message : "it stopped without answering";
+
+            if (!answered) {
+                reject(new Error("can't reach the Soulseek bridge (" + reason + ") - run native/install.sh"));
+            }
+        });
+
+        port.postMessage({ query: query });
     });
 }
 

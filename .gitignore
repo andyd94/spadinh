@@ -8,3 +8,6 @@
 # python (native/ host)
 __pycache__/
 *.pyc
+
+# written by native/install.sh for this machine
+native/soulseek-host

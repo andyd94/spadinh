@@ -1,5 +1,5 @@
 // YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it,
-// `d` adds it to the Downloads playlist, `Shift+S` searches SoulseekQt for it.
+// `d` adds it to the Downloads playlist, `Shift+S` finds it on Soulseek and queues the download.
 
 const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo, d: ytSaveVideo };
 

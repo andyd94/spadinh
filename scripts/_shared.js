@@ -83,14 +83,14 @@ const SPADINH_CATALOGUE_PARENS = /\s*\((?!(?:part|pt|vol|volume|disc|disk|side|c
 // Discogs writes its dashes as en dashes (–); they come out as plain hyphens so the query reads
 // the way anyone would type it.
 function spadinhSearchQuery(title, artist) {
-    const cleaned = (title || "")
+    const cleaned = spadinhDropReleaseTail((title || "")
         .replace(SPADINH_TITLE_NOISE, " ")
         .replace(SPADINH_BRACKET_TAG, (tag) => (SPADINH_MIX_WORDS.test(tag) ? tag : " "))
         .replace(SPADINH_LABEL_PARENS, " ")
         .replace(SPADINH_CATALOGUE_PARENS, " ")
         .replace(/[–—]/g, "-")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim());
 
     if (!cleaned) {
         return "";
@@ -101,6 +101,20 @@ function spadinhSearchQuery(title, artist) {
     }
 
     return artist + " - " + cleaned;
+}
+
+// "Artist - Track - Release name - Label 015" is how whole-record uploads are titled: everything
+// after the track is the record it's on. Only the first two parts are the tune, plus any later one
+// that names a mix ("Artist - Track - Dub Mix"); the rest would be searched for as part of the
+// track name and match nothing.
+function spadinhDropReleaseTail(cleaned) {
+    const parts = cleaned.split(/\s+-\s+/);
+
+    if (parts.length < 3) {
+        return cleaned;
+    }
+
+    return parts.filter((part, index) => index < 2 || SPADINH_MIX_WORDS.test(part)).join(" - ");
 }
 
 // An artist name fit to put in front of a track, or "" when it names no one: Discogs credits

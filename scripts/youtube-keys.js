@@ -1,7 +1,52 @@
-// YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it,
-// `d` adds it to the Downloads playlist, `Shift+S` finds it on Soulseek and queues the download.
+// YouTube: `s` searches Google for a video as "artist - track", `a` likes it, `d` adds it to the
+// Downloads playlist, `Shift+S` finds it on Soulseek and queues the download. The video is the one
+// under the mouse pointer - a row of the liked list, the playlist panel, the sidebar, a search
+// result - and, on a watch page with the pointer on none, the one playing.
 
 const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo, d: ytSaveVideo };
+const YT_HOVER_KEYS = { s: ytSearchHovered, a: ytLikeHovered, d: ytSaveHovered };
+
+// Everything YouTube lists a video in: playlist pages (the liked list among them), the playlist
+// panel beside a playing video, the watch-page sidebar, search results, home and channel grids,
+// and the newer "lockup" tiles that are replacing several of those.
+const YT_ITEM_SELECTOR = [
+    "ytd-playlist-video-renderer",
+    "ytd-playlist-panel-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
+    "ytd-reel-item-renderer",
+    "ytd-video-preview",
+    "yt-lockup-view-model",
+    "ytm-shorts-lockup-view-model",
+    "a.ytp-videowall-still",
+    "a.ytp-ce-covering-overlay"
+].join(", ");
+
+const YT_ITEM_TITLE_SELECTOR = [
+    "#video-title",
+    ".yt-lockup-metadata-view-model__title",
+    ".yt-lockup-metadata-view-model-wiz__title",
+    ".ytp-videowall-still-info-title",
+    ".ytp-ce-video-title",
+    "h3 a",
+    "h3",
+    "a[title]"
+].join(", ");
+
+const YT_ITEM_CHANNEL_SELECTOR = [
+    "ytd-channel-name #text",
+    "#byline",
+    ".yt-content-metadata-view-model__metadata-text",
+    ".yt-content-metadata-view-model-wiz__metadata-text",
+    "#channel-name"
+].join(", ");
+
+const YT_VIDEO_LINK_SELECTOR = 'a[href*="watch?v="], a[href*="/shorts/"]';
+// How far up from the pointer an unrecognised layout is searched for the video it sits in.
+const YT_LOOSE_ITEM_DEPTH = 6;
 
 ytKeysInit();
 
@@ -28,16 +73,189 @@ function ytOnKeyDown(event) {
         return;
     }
 
-    const action = spadinhIsSoulseekChord(event) ? ytSoulseekVideo : (event.shiftKey ? null : YT_KEYS[event.key]);
+    const soulseek = spadinhIsSoulseekChord(event);
 
-    if (!action || window.location.pathname !== "/watch") {
+    if (!soulseek && (event.shiftKey || !YT_KEYS[event.key])) {
+        return;
+    }
+
+    const hovered = ytHoveredVideo();
+
+    if (!hovered && window.location.pathname !== "/watch") {
         return;
     }
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    action();
+
+    if (hovered) {
+        ytFlashItem(hovered.item);
+        (soulseek ? ytSoulseekHovered : YT_HOVER_KEYS[event.key])(hovered);
+    } else {
+        (soulseek ? ytSoulseekVideo : YT_KEYS[event.key])();
+    }
 }
+
+// --- The video under the pointer ---------------------------------------------------------------
+
+// `{ videoId, title, channel, item }` for the listed video the pointer is on, or null: on none, on
+// the player itself, or on the playing video's own entry (the playlist panel lists it too), which
+// the playing-video actions handle better - they know whether it's liked already.
+function ytHoveredVideo() {
+    const chain = document.querySelectorAll(":hover");
+    const pointed = chain.length ? chain[chain.length - 1] : null;
+
+    if (!pointed) {
+        return null;
+    }
+
+    const item = pointed.closest(YT_ITEM_SELECTOR) ||
+        (pointed.closest("#movie_player") ? null : ytLooseItem(pointed));
+    const videoId = item ? ytItemVideoId(item) : null;
+
+    if (!videoId || (window.location.pathname === "/watch" && videoId === ytWatchVideoId())) {
+        return null;
+    }
+
+    const described = ytItemTitle(item) ? item : (ytItemElsewhere(videoId, item) || item);
+
+    return {
+        videoId: videoId,
+        title: ytItemTitle(described),
+        channel: ytItemChannel(described),
+        item: item
+    };
+}
+
+// A layout not in the list above: the nearest ancestor that links to exactly one video. Stops at
+// the first ancestor linking to several - that's a list, and the pointer is between its rows.
+function ytLooseItem(pointed) {
+    let node = pointed;
+
+    for (let depth = 0; node && node !== document.body && depth < YT_LOOSE_ITEM_DEPTH; depth++) {
+        const ids = new Set(ytVideoLinks(node).map(ytVideoIdFromLink).filter(Boolean));
+
+        if (ids.size === 1) {
+            return node;
+        }
+
+        if (ids.size > 1) {
+            return null;
+        }
+
+        node = node.parentElement;
+    }
+
+    return null;
+}
+
+function ytVideoLinks(node) {
+    const links = Array.from(node.querySelectorAll(YT_VIDEO_LINK_SELECTOR));
+
+    if (node.matches(YT_VIDEO_LINK_SELECTOR)) {
+        links.unshift(node);
+    }
+
+    return links;
+}
+
+function ytVideoIdFromLink(link) {
+    const match = (link.getAttribute("href") || "").match(/(?:[?&]v=|\/shorts\/)([A-Za-z0-9_-]{11})/);
+
+    return match ? match[1] : null;
+}
+
+function ytItemVideoId(item) {
+    for (const link of ytVideoLinks(item)) {
+        const videoId = ytVideoIdFromLink(link);
+
+        if (videoId) {
+            return videoId;
+        }
+    }
+
+    return null;
+}
+
+// The `title` attribute where there is one: the visible text of a long title is cut short by CSS
+// but can also carry badges and screen-reader extras.
+function ytItemTitle(item) {
+    const element = item.querySelector(YT_ITEM_TITLE_SELECTOR);
+
+    return element ? (element.getAttribute("title") || element.textContent || "").trim() : "";
+}
+
+function ytItemChannel(item) {
+    const element = item.querySelector(YT_ITEM_CHANNEL_SELECTOR);
+    const name = element ? (element.getAttribute("title") || element.textContent || "") : "";
+
+    return spadinhArtistOrNone(name.replace(/\s+/g, " ").trim().replace(/\s+-\s+Topic$/i, ""));
+}
+
+// The hover preview that plays over a thumbnail carries the video's link but not its title; the
+// tile it grew out of is still on the page and has both.
+function ytItemElsewhere(videoId, except) {
+    for (const item of document.querySelectorAll(YT_ITEM_SELECTOR)) {
+        if (item !== except && ytItemVideoId(item) === videoId && ytItemTitle(item)) {
+            return item;
+        }
+    }
+
+    return null;
+}
+
+// Shows which video a key landed on; the toast names it too.
+function ytFlashItem(item) {
+    if (typeof item.animate !== "function") {
+        return;
+    }
+
+    item.animate(
+        [
+            { outline: "2px solid #63b3ed", outlineOffset: "-2px" },
+            { outline: "2px solid rgba(99, 179, 237, 0)", outlineOffset: "-2px" }
+        ],
+        { duration: 900, easing: "ease-out" }
+    );
+}
+
+function ytSearchHovered(hovered) {
+    const query = spadinhSearchQuery(hovered.title, hovered.channel);
+
+    if (!query) {
+        spadinhShowToast("couldn't read that video's title");
+        return;
+    }
+
+    window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank");
+    spadinhShowToast("searching: " + query);
+}
+
+// `playing: true` so the service worker searches for this title and not for highlighted text.
+function ytSoulseekHovered(hovered) {
+    if (!hovered.title) {
+        spadinhShowToast("couldn't read that video's title");
+        return;
+    }
+
+    spadinhSend({ action: "slskSearch", title: hovered.title, artist: hovered.channel, playing: true });
+}
+
+// Unlike the like button, the request doesn't say whether the video was liked already; liking
+// twice is harmless.
+function ytLikeHovered(hovered) {
+    const what = hovered.title ? ": " + hovered.title : "";
+
+    ytLikeViaInnertube(hovered.videoId)
+        .then(() => spadinhShowToast("liked" + what))
+        .catch((error) => spadinhShowToast("couldn't like" + what + " - " + error.message));
+}
+
+function ytSaveHovered(hovered) {
+    ytSaveById(hovered.videoId, hovered.title);
+}
+
+// --- The playing video -------------------------------------------------------------------------
 
 // The on-page title, not `document.title`: YouTube is a single-page app and the tab title can lag
 // a video change by a beat. `document.title` is the fallback, with its " - YouTube" trimmed.
@@ -123,8 +341,10 @@ function ytSaveVideo() {
         return;
     }
 
-    const title = ytVideoTitle();
+    ytSaveById(videoId, ytVideoTitle());
+}
 
+function ytSaveById(videoId, title) {
     spadinhShowToast("adding to " + YT_DOWNLOADS_PLAYLIST + "…");
 
     ytSaveToDownloads(videoId)

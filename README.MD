@@ -4,15 +4,17 @@ Chrome extension for digging on Discogs and YouTube: filter listings, triage rel
 
 ## Shortcuts
 
-| Key | Action | Discogs page | Discogs embedded player | YouTube video page |
+| Key | Action | Discogs page | Discogs embedded player | YouTube |
 | --- | --- | :---: | :---: | :---: |
 | `p` | Pass the release in dinhscogvery | release / listing | | |
 | `r` | Toggle the release on the Revisit list | release / listing | | |
-| `a` | Like the playing video | ✓ | ✓ | ✓ |
-| `d` | Add the playing video to the **Downloads** playlist | ✓ | ✓ | ✓ |
-| `s` | Google the playing track as `artist - track name` | ✓ | ✓ | ✓ |
-| `Shift+S` | Find the playing track on Soulseek and queue the best file for download | ✓ | ✓ | ✓ |
+| `a` | Like the video | ✓ | ✓ | ✓ |
+| `d` | Add the video to the **Downloads** playlist | ✓ | ✓ | ✓ |
+| `s` | Google the track as `artist - track name` | ✓ | ✓ | ✓ |
+| `Shift+S` | Find the track on Soulseek and queue the best file for download | ✓ | ✓ | ✓ |
 | `Ctrl+Shift` | Run the ratio filter | seller, artist, label, search | | |
+
+On Discogs the video is the one playing. On YouTube it is the one under the mouse pointer, or the one playing when the pointer is on none.
 
 Letter keys are ignored while typing in a field or with another modifier held. A toast on the page reports the result.
 
@@ -97,7 +99,8 @@ A bar in the bottom-left corner of the page:
 
 `a`, `d`, `s` and `Shift+S` act on the video playing on a YouTube video page or in a Discogs release page's embedded player, whichever has focus.
 
-- **`a` (like)** only ever likes. On an already-liked video it says so.
+- **Hovering** on YouTube points the keys at another video: a row of the liked list or any playlist, the playlist panel beside the player, the sidebar, a search result, a home or channel tile. This works on any YouTube page, with or without a video playing. The row flashes and the toast names the video. With the pointer on the player, on the playing video's own row or on no video, the keys act on the playing video.
+- **`a` (like)** only ever likes. On an already-liked playing video it says so; a hovered video is liked without that check.
 - **`d` (Downloads)** adds the video to a private playlist named **Downloads**, created on first use. A video already in it is left alone. It uses your YouTube session: no Google Cloud or OAuth setup.
 - On Discogs, `a` and `d` fall back to opening the video in a background YouTube tab, acting there and closing it, when the player can't do it (e.g. signed out because third-party cookies are blocked).
 - **`s` (Google)** searches `artist - track name` in a new tab, with upload noise stripped from the title: `(Official Video)`, `[HD]`, label names, catalogue numbers, years. If the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.

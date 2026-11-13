@@ -1,5 +1,5 @@
 // YouTube: `s` searches Google for a video as "artist - track", `a` likes it, `d` adds it to the
-// Downloads playlist, `Shift+D` finds it on Soulseek and queues the download. The video is the one
+// Downloads playlist, `Shift+D` hands it to Downloadinh to download. The video is the one
 // under the mouse pointer - a row of the liked list, the playlist panel, the sidebar, a search
 // result - and, on a watch page with the pointer on none, the one playing.
 
@@ -56,7 +56,7 @@ function ytKeysInit() {
     // stopping the event here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
 
-    // Results of a Soulseek search come back from the service worker as toasts.
+    // Progress of a download comes back from the service worker as toasts.
     chrome.runtime.onMessage.addListener((message) => {
         if (message.action === "spadinhToast") {
             spadinhShowToast(message.text);
@@ -73,9 +73,9 @@ function ytOnKeyDown(event) {
         return;
     }
 
-    const soulseek = spadinhIsSoulseekChord(event);
+    const download = spadinhIsDownloadChord(event);
 
-    if (!soulseek && (event.shiftKey || !YT_KEYS[event.key])) {
+    if (!download && (event.shiftKey || !YT_KEYS[event.key])) {
         return;
     }
 
@@ -90,9 +90,9 @@ function ytOnKeyDown(event) {
 
     if (hovered) {
         ytFlashItem(hovered.item);
-        (soulseek ? ytSoulseekHovered : YT_HOVER_KEYS[event.key])(hovered);
+        (download ? ytDownloadHovered : YT_HOVER_KEYS[event.key])(hovered);
     } else {
-        (soulseek ? ytSoulseekVideo : YT_KEYS[event.key])();
+        (download ? ytDownloadVideo : YT_KEYS[event.key])();
     }
 }
 
@@ -232,13 +232,13 @@ function ytSearchHovered(hovered) {
 }
 
 // `playing: true` so the service worker searches for this title and not for highlighted text.
-function ytSoulseekHovered(hovered) {
+function ytDownloadHovered(hovered) {
     if (!hovered.title) {
         spadinhShowToast("couldn't read that video's title");
         return;
     }
 
-    spadinhSend({ action: "slskSearch", title: hovered.title, artist: hovered.channel, playing: true });
+    spadinhSend({ action: "downloadTrack", title: hovered.title, artist: hovered.channel, playing: true });
 }
 
 // Unlike the like button, the request doesn't say whether the video was liked already; liking
@@ -300,8 +300,8 @@ function ytSearchVideo() {
     spadinhShowToast("searching: " + query);
 }
 
-function ytSoulseekVideo() {
-    spadinhSend({ action: "slskSearch", title: ytVideoTitle(), artist: ytChannelName(), playing: ytIsPlaying() });
+function ytDownloadVideo() {
+    spadinhSend({ action: "downloadTrack", title: ytVideoTitle(), artist: ytChannelName(), playing: ytIsPlaying() });
 }
 
 // `like-button-view-model` is the like half of the segmented like/dislike control; the aria-label

@@ -50,8 +50,8 @@ function spadinhShowToast(text) {
     spadinhToastTimer = setTimeout(() => { toast.style.opacity = "0"; }, spadinhToastDuration(text));
 }
 
-// Long enough to read: a Soulseek result names a file and runs to a couple of lines. A toast
-// ending in "…" is work in progress (a Soulseek search can take a minute or two) and stays up
+// Long enough to read: a download result names a file and runs to a couple of lines. A toast
+// ending in "…" is work in progress (a download can take minutes) and stays up
 // until its result replaces it.
 function spadinhToastDuration(text) {
     if (/…$/.test(text)) {
@@ -149,13 +149,13 @@ function spadinhRequestYtSave(videoId) {
 
 // Shift+D and nothing else held. With Shift down the key reports as "D", so the lowercase keymaps
 // never see it; the handlers check this before they rule out Shift.
-function spadinhIsSoulseekChord(event) {
+function spadinhIsDownloadChord(event) {
     return event.key === "D" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 
-// Same "artist - track" query as `s`, found on Soulseek and queued for download instead of googled (see background.js).
-function spadinhRequestSoulseekSearch(title, artist) {
-    spadinhSend({ action: "slskSearch", title: title, artist: artist });
+// Same "artist - track" query as `s`, handed to Downloadinh to download instead of googled (see background.js).
+function spadinhRequestDownload(title, artist) {
+    spadinhSend({ action: "downloadTrack", title: title, artist: artist });
 }
 
 // The playlist `d` saves to, matched by name (any case); created private on first use.

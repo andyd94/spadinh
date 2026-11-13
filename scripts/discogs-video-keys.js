@@ -1,6 +1,6 @@
 // Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `d`
 // adds it to the Downloads playlist there, `s`
-// searches Google for it as "artist - track", `Shift+D` finds the same on Soulseek and queues the download. All go
+// searches Google for it as "artist - track", `Shift+D` hands the same to Downloadinh to download. All go
 // through the service worker, which asks the player frame what's actually loaded; progress and
 // results come back here as toasts.
 
@@ -50,8 +50,8 @@ function discogsVideoOnKeyDown(event) {
         return;
     }
 
-    if (spadinhIsSoulseekChord(event)) {
-        discogsSoulseekPlayingVideo();
+    if (spadinhIsDownloadChord(event)) {
+        discogsDownloadPlayingVideo();
         return;
     }
 
@@ -104,6 +104,6 @@ function discogsSearchPlayingVideo() {
     spadinhSend({ action: "ytSearch", title: discogsPlayingVideoTitle(), artist: discogsReleaseArtist() });
 }
 
-function discogsSoulseekPlayingVideo() {
-    spadinhRequestSoulseekSearch(discogsPlayingVideoTitle(), discogsReleaseArtist());
+function discogsDownloadPlayingVideo() {
+    spadinhRequestDownload(discogsPlayingVideoTitle(), discogsReleaseArtist());
 }

@@ -76,8 +76,8 @@ function ytEmbedOnKeyDown(event) {
         return;
     }
 
-    if (spadinhIsSoulseekChord(event)) {
-        ytEmbedSoulseek();
+    if (spadinhIsDownloadChord(event)) {
+        ytEmbedDownload();
         return;
     }
 
@@ -124,7 +124,7 @@ function ytEmbedSearch() {
     spadinhSend({ action: "ytSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }
 
-// Shift+D: the same query, to Soulseek (found and queued through slskd). The service worker asks this frame for the title anyway.
-function ytEmbedSoulseek() {
-    spadinhSend({ action: "slskSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
+// Shift+D: the same query, to Downloadinh's queue. The service worker asks this frame for the title anyway.
+function ytEmbedDownload() {
+    spadinhSend({ action: "downloadTrack", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
 }

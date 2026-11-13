@@ -11,7 +11,7 @@ Chrome extension for digging on Discogs and YouTube: filter listings, triage rel
 | `a` | Like the video | ✓ | ✓ | ✓ |
 | `d` | Add the video to the **Downloads** playlist | ✓ | ✓ | ✓ |
 | `s` | Google the track as `artist - track name` | ✓ | ✓ | ✓ |
-| `Shift+D` | Find the track on Soulseek and queue the best file for download | ✓ | ✓ | ✓ |
+| `Shift+D` | Download the track through Downloadinh | ✓ | ✓ | ✓ |
 | `Ctrl+Shift` | Run the ratio filter | seller, artist, label, search | | |
 
 On Discogs the video is the one playing. On YouTube it is the one under the mouse pointer, or the one playing when the pointer is on none.
@@ -30,15 +30,15 @@ To update:
 2. Reload the extension in `chrome://extensions`.
 3. Refresh any open Discogs and YouTube tabs.
 
-### Soulseek helper (macOS only, once per Mac)
+### Downloadinh (for `Shift+D`)
 
-`Shift+D` needs a small helper Chrome can launch. It searches Soulseek through [slskd](https://github.com/slskd/slskd) using [Downloadinh](https://github.com/andyd94/downloadinh)'s code, and reads slskd's address and API key from Downloadinh's `downloadinh.toml`, so nothing is configured in the extension.
+`Shift+D` hands tunes to [Downloadinh](https://github.com/andyd94/downloadinh)'s queue, so Downloadinh has to be running on the same Mac:
 
-1. Set up Downloadinh as its README says: a checkout, a Python 3.11+ venv with it installed, and `downloadinh.toml` with slskd's `api_key`.
-2. From the extension folder, run `bash native/install.sh` (no sudo). It looks for Downloadinh in a `downloadinh` folder next to this one (otherwise pass the path: `bash native/install.sh ~/code/downloadinh`) and for its Python in `.venv` or `venv` inside it, then `~/.venvs/downloadinh` (or set `DOWNLOADINH_PYTHON`). Re-run it if either folder moves.
-3. Reload the extension in `chrome://extensions`. On a Mac that has never had it, **Load unpacked** the folder; the manifest `key` pins the extension id to `onhlmcgjfnopeojjoocnmneahejhhlmh`.
+```
+downloadinh serve
+```
 
-slskd has to be running. Soulseek allows one login per account, so the desktop Soulseek app can't be online on the same account at the same time.
+Set it up as its README says (slskd, Spotify and Telegram details go in its `downloadinh.toml`). Nothing is configured in the extension; it talks to `http://127.0.0.1:5031`.
 
 ## Ratio filter
 
@@ -104,19 +104,18 @@ A bar in the bottom-left corner of the page:
 - **`d` (Downloads)** adds the video to a private playlist named **Downloads**, created on first use. A video already in it is left alone. It uses your YouTube session: no Google Cloud or OAuth setup.
 - On Discogs, `a` and `d` fall back to opening the video in a background YouTube tab, acting there and closing it, when the player can't do it (e.g. signed out because third-party cookies are blocked).
 - **`s` (Google)** searches `artist - track name` in a new tab, with upload noise stripped from the title: `(Official Video)`, `[HD]`, label names, catalogue numbers, years. If the title has no ` - `, the channel name (on Discogs, the release artist) stands in as the artist.
-- **`Shift+D` (Soulseek)** searches Soulseek for the same query and queues the best file in slskd. The choice is Downloadinh's: lead artist, title and mix name must match, and the length must be within 2 seconds of Spotify's when Spotify is configured there and knows the track. Among files that pass it's AIFF, then WAV, FLAC and 320/VBR MP3, highest resolution up to 24/48, free upload slot first. The toast shows what was queued, e.g. `soulseek: queued AIFF 16/44.1 from user (free slot) - file.aiff`.
-- When no file passes, nothing is downloaded and the toast names the closest files and why each failed (`mix differs`, `MP3 192 kbps CBR is below 320`). A query with no ` - ` (a `Various` release with nothing highlighted) isn't searched: without an artist there's nothing to hold a file to.
-- The file lands in slskd's downloads folder and stays there. Downloadinh's after-download steps (fake-lossless check, FLAC to AIFF, the move into Music) only run when Downloadinh does the downloading.
+- **`Shift+D` (download)** adds the same query to Downloadinh's queue. Downloadinh looks for the best copy on Soulseek (artist, title, mix and length must match; AIFF, then WAV, FLAC, MP3), falls back to DeezLoadApp, discards fake lossless files, converts FLAC to AIFF and imports the result into Music.
+- The toast follows the tune for up to 20 minutes: queued, searching, downloading with a percentage, then what it got (`downloadinh: got Artist - Title - AIFF 16/44.1 from Soulseek - file.aiff`) or that it couldn't be found. The full picture, with near misses and store links, is on Downloadinh's page at http://localhost:5031.
+- A query with no ` - ` (a `Various` release with nothing highlighted) is turned down: without an artist there's nothing to hold a file to. So is a tune already waiting in the queue.
 
-When nothing is playing, `s` and `Shift+D` search the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
+When nothing is playing, `s` and `Shift+D` take the highlighted text instead, e.g. a tracklist line. Leading positions (`A2`) and Discogs' `(2)` suffixes are dropped, and a highlight with no ` - ` gets the release artist or channel in front (never "Various"). A paused video is searched only when nothing is highlighted. On a Discogs page with no videos and nothing highlighted, the record itself is searched as `Artist - Title`.
 
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
 | dinhscogvery status says it couldn't reach either address | You're off the tailnet and nothing is serving on `127.0.0.1:8000`. |
-| Toast: can't reach the Soulseek bridge | `native/install.sh` hasn't been run on this Mac since the helper moved to slskd, or a folder has moved. Re-run it. |
-| Toast: can't search slskd | slskd isn't running, or the `api_key` in `downloadinh.toml` is wrong. |
+| Toast: downloadinh isn't running | Start it with `downloadinh serve` and press `Shift+D` again. |
 | `a` or `d` on Discogs opens a background tab | Expected fallback when the embedded player is signed out. |
 | `a` or `d` stops working everywhere | YouTube changed its internal request; the toast says why. |
 | Keys do nothing after an update | Reload the extension and refresh the tab. |

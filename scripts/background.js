@@ -761,18 +761,21 @@ function readPlayerState() {
     };
 }
 
-// --- Soulseek ----------------------------------------------------------------------------------------
+// --- Downloading ---------------------------------------------------------------------------------
 //
-// Shift+D on a Discogs page, in its player, or on a YouTube watch page: the same "artist - track"
-// query as `s`, handed to the native host in native/ (registered by native/install.sh). The host
-// searches Soulseek through slskd with Downloadinh's matching and ranking, queues the best file
-// for download and reports back; when nothing passes the rules it downloads nothing and names the
-// closest files instead.
+// Shift+D on a Discogs page, in its player, or on YouTube: the same "artist - track" query as `s`,
+// added to Downloadinh's queue (github.com/andyd94/downloadinh, `downloadinh serve`, this Mac
+// only). Downloadinh does the rest - Soulseek through slskd, DeezLoadApp if that has no lossless
+// copy, the fake-lossless check, AIFF conversion and the import into Music - and shows it all on
+// its own page. From here the tune is handed over and then watched for a while, so the toast can
+// say how it's going and how it ended.
 
-const SLSK_HOST = "com.spadinh.soulseek";
+const DOWNLOADINH_URL = "http://127.0.0.1:5031";
+const DOWNLOADINH_POLL_MS = 2000;
+const DOWNLOADINH_WATCH_MS = 20 * 60 * 1000;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action !== "slskSearch") {
+    if (message.action !== "downloadTrack") {
         return false;
     }
 
@@ -785,10 +788,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 return;
             }
 
-            notifyPage(originTabId, "soulseek: " + query + "…");
+            return queueInDownloadinh(query).then((jobId) => {
+                notifyPage(originTabId, "downloadinh: queued " + query + "…");
 
-            return searchInSoulseek(query, (text) => notifyPage(originTabId, text))
-                .then((text) => notifyPage(originTabId, text));
+                return watchDownloadinhJob(jobId, (text) => notifyPage(originTabId, text));
+            });
         })
         .catch((error) => notifyPage(originTabId, error.message));
 
@@ -796,45 +800,114 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// A port rather than a one-off message: the search takes slskd some twenty seconds, an open native
-// port keeps the service worker alive for it, and the host can say what it's doing meanwhile
-// (`progress` messages) before its one final answer.
-//
-// A port that drops without an answer nearly always means the host isn't registered for this
-// extension id, or the registration points at a path that's moved — both fixed by re-running
-// native/install.sh.
-function searchInSoulseek(query, onProgress) {
-    return new Promise((resolve, reject) => {
-        const port = chrome.runtime.connectNative(SLSK_HOST);
-        let answered = false;
+async function downloadinhFetch(path, body) {
+    let response;
 
-        port.onMessage.addListener((response) => {
-            if (response && response.progress) {
-                onProgress(response.text);
-                return;
-            }
-
-            answered = true;
-            port.disconnect();
-
-            if (!response || !response.ok) {
-                reject(new Error(response && response.text ? response.text : "no reply from the Soulseek bridge"));
-                return;
-            }
-
-            resolve(response.text);
+    try {
+        response = await fetch(DOWNLOADINH_URL + path, body === undefined ? {} : {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
         });
+    } catch (error) {
+        throw new Error("downloadinh isn't running - start it with: downloadinh serve");
+    }
 
-        port.onDisconnect.addListener(() => {
-            const reason = chrome.runtime.lastError ? chrome.runtime.lastError.message : "it stopped without answering";
+    if (!response.ok) {
+        throw new Error("downloadinh answered " + response.status + " to " + path);
+    }
 
-            if (!answered) {
-                reject(new Error("can't reach the Soulseek bridge (" + reason + ") - run native/install.sh"));
-            }
-        });
+    return response.json();
+}
 
-        port.postMessage({ query: query });
-    });
+// Resolves with the new job's id. Downloadinh turns down a line it can't use - no " - " to tell
+// artist from title, or a tune already waiting in its queue - and says why.
+async function queueInDownloadinh(query) {
+    const answer = await downloadinhFetch("/api/add", { lines: [query], origin: "Spadinh" });
+
+    if (answer.ids && answer.ids.length) {
+        return answer.ids[0];
+    }
+
+    const rejected = answer.rejected && answer.rejected[0];
+
+    throw new Error("downloadinh: not queued, " + (rejected ? rejected.reason : "no reason given") + " (" + query + ")");
+}
+
+// Follows one job on Downloadinh's list, reporting each change of stage and then the outcome.
+// Tunes are taken one at a time and a download can sit in someone's queue, so this gives up
+// quietly after a while; the page at DOWNLOADINH_URL has the rest. The extension call each round
+// is what keeps the service worker from being put to sleep between polls.
+async function watchDownloadinhJob(jobId, report) {
+    const deadline = Date.now() + DOWNLOADINH_WATCH_MS;
+    let last = "";
+
+    while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, DOWNLOADINH_POLL_MS));
+        await chrome.runtime.getPlatformInfo();
+
+        let state;
+
+        try {
+            state = await downloadinhFetch("/api/state");
+        } catch (error) {
+            report("downloadinh stopped answering - the tune stays in its queue");
+            return;
+        }
+
+        const jobs = state.jobs || [];
+        const job = jobs.find((candidate) => candidate.id === jobId);
+
+        if (!job) {
+            return;
+        }
+
+        if (job.status !== "queued" && job.status !== "working") {
+            report(downloadinhOutcome(job));
+            return;
+        }
+
+        const text = downloadinhProgress(job, jobs);
+
+        if (text !== last) {
+            last = text;
+            report(text);
+        }
+    }
+}
+
+// Ends in "…" so the toast stays up until the next one replaces it.
+function downloadinhProgress(job, jobs) {
+    const tune = job.tune || job.line;
+
+    if (job.status === "queued") {
+        const ahead = jobs.indexOf(job) - jobs.findIndex((other) => other.status === "queued" || other.status === "working");
+
+        return "downloadinh: " + tune + " - waiting behind " + ahead + " other" + (ahead === 1 ? "" : "s") + "…";
+    }
+
+    // Whole tens only, or every poll would be a new toast.
+    const percent = typeof job.progress === "number" ? " " + Math.floor(job.progress * 10) * 10 + "%" : "";
+
+    return "downloadinh: " + tune + " - " + (job.detail || job.stage || "starting") + percent + "…";
+}
+
+function downloadinhOutcome(job) {
+    const tune = job.tune || job.line;
+
+    if (job.status === "done") {
+        const what = [job.quality, job.source ? "from " + job.source : "", job.file ? "- " + job.file : ""]
+            .filter(Boolean).join(" ");
+        const flags = job.flags && job.flags.length ? " (check: " + job.flags.join("; ") + ")" : "";
+
+        return "downloadinh: got " + tune + (what ? " - " + what : "") + (job.detail ? " - " + job.detail : "") + flags;
+    }
+
+    if (job.status === "missing") {
+        return "downloadinh: couldn't find " + tune + " - near misses and store links are on its page";
+    }
+
+    return "downloadinh: " + tune + " failed" + (job.detail ? " - " + job.detail : "");
 }
 
 async function resolveCurrentVideoId(tabId, pageGuess) {
@@ -868,7 +941,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// What `s` and Shift+D search for. A playing video wins; otherwise text highlighted on the page,
+// What `s` searches for and Shift+D downloads. A playing video wins; otherwise text highlighted on the page,
 // so a tracklist line can be searched without playing it; otherwise whatever video is loaded
 // (paused counts), or the page's guess. `message.playing` covers pages the player probe can't
 // see into: YouTube watch pages, and the embed frame answering for itself.

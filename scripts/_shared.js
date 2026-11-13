@@ -3,7 +3,7 @@
 const SPADINH_TOAST_ID = "spadinh-toast";
 const SPADINH_TOAST_MS = 2500;
 const SPADINH_TOAST_MAX_MS = 12000;
-const SPADINH_TOAST_PENDING_MS = 45000;
+const SPADINH_TOAST_PENDING_MS = 150000;
 
 let spadinhToastTimer = null;
 
@@ -51,7 +51,7 @@ function spadinhShowToast(text) {
 }
 
 // Long enough to read: a Soulseek result names a file and runs to a couple of lines. A toast
-// ending in "…" is work in progress (a Soulseek search takes some twenty seconds) and stays up
+// ending in "…" is work in progress (a Soulseek search can take a minute or two) and stays up
 // until its result replaces it.
 function spadinhToastDuration(text) {
     if (/…$/.test(text)) {

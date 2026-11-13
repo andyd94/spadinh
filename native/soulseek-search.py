@@ -80,7 +80,7 @@ def run(query, soulseek=None, spotify=None, cfg=None):
     try:
         from downloadinh import config as config_mod
         from downloadinh.models import Track, TrackResult
-        from downloadinh.pipeline import Downloadinh, Settings, search_query
+        from downloadinh.pipeline import Downloadinh, Settings
         from downloadinh.textnorm import parse_line
     except ImportError as error:
         return False, "can't load Downloadinh (%s) - run native/install.sh" % error
@@ -116,18 +116,22 @@ def run(query, soulseek=None, spotify=None, cfg=None):
 
         spotify = SpotifyClient(cfg.spotify_client_id, cfg.spotify_client_secret)
 
-    # A dry run is Downloadinh's own search-match-rank with nothing downloaded: it hands back the
-    # best file, or the nearest misses. Queueing is done here so the key press returns straight
-    # away instead of waiting out the transfer.
+    # Downloadinh's own search-match-rank: it tries the query with the mix name, then without, and
+    # hands back the files that pass every rule, best first - or leaves the nearest misses on the
+    # result. Queueing is done here so the key press returns straight away instead of waiting out
+    # the transfer, and with no bot or MP3 fallback to weigh it's simply the best file, the ones
+    # behind a very long queue last.
     settings = Settings(tolerance_s=cfg.tolerance_s, search_timeout_s=cfg.search_timeout_s, dry_run=True)
+    max_queue = getattr(cfg, "max_queue", 100)
     app = Downloadinh(soulseek, spotify, None, settings)
+    app.on_event = lambda stage, detail="", done=None: stage == "searching" and progress(detail.replace("Searching Soulseek for", "searching") + "…")
     result = TrackResult(track=track)
 
     track = result.track = app.resolve(track, result)
-    length = "" if track.duration is None else ", %d:%02d" % divmod(round(track.duration), 60)
-    progress("searching %s%s…" % (search_query(track), length))
+    good = app.find_on_soulseek(track, result)
+    good = [c for c in good if c.file.queue_length <= max_queue] + [c for c in good if c.file.queue_length > max_queue]
 
-    if not app.try_soulseek(track, result):
+    if not good:
         failed = [n for n in result.notes if n.startswith("Soulseek search failed")]
 
         if failed:
@@ -142,6 +146,8 @@ def run(query, soulseek=None, spotify=None, cfg=None):
                                  "no results")
 
         return False, text
+
+    result.chosen = good[0]
 
     try:
         soulseek.enqueue(result.chosen.file)

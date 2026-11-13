@@ -1,9 +1,10 @@
-// Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `s`
+// Discogs release/master pages: `a` likes the video playing in the embedded player on YouTube, `d`
+// adds it to the Downloads playlist there, `s`
 // searches Google for it as "artist - track", `Shift+S` searches SoulseekQt for the same. All go
 // through the service worker, which asks the player frame what's actually loaded; progress and
 // results come back here as toasts.
 
-const DISCOGS_VIDEO_KEYS = { a: discogsLikePlayingVideo, s: discogsSearchPlayingVideo };
+const DISCOGS_VIDEO_KEYS = { a: discogsLikePlayingVideo, d: discogsSavePlayingVideo, s: discogsSearchPlayingVideo };
 
 discogsVideoKeysInit();
 
@@ -93,6 +94,10 @@ function discogsReleaseArtist() {
 // one that says "no video" if nothing answers.
 function discogsLikePlayingVideo() {
     spadinhRequestYtLike(discogsPlayingVideoId());
+}
+
+function discogsSavePlayingVideo() {
+    spadinhRequestYtSave(discogsPlayingVideoId());
 }
 
 function discogsSearchPlayingVideo() {

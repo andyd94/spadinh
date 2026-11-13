@@ -1,16 +1,14 @@
-// Inside a YouTube embed (Discogs' player, for one): `a` likes the embedded video on YouTube. Once
+// Inside a YouTube embed (Discogs' player, for one): `a` likes the embedded video on YouTube, `d`
+// adds it to the Downloads playlist there. Once
 // the player has been clicked, keystrokes go to this iframe rather than the page around it, so
 // the page's own `a` handler never sees them — this one does, and the id is right in the URL.
 //
-// This frame is also where the like itself happens when it can: it's a youtube.com origin with the
-// user's cookies, so it can send the same internal request the like button does. The service
-// worker asks it to (`ytLikeInFrame`) before falling back to opening a watch page.
+// This frame is also where the like and the save themselves happen when they can: it's a
+// youtube.com origin with the user's cookies, so it can send the same internal requests YouTube's
+// own buttons do (yt-innertube.js). The service worker asks it to (`ytLikeInFrame`,
+// `ytSaveInFrame`) before falling back to opening a watch page.
 
-const YT_EMBED_KEYS = { a: ytEmbedLike, s: ytEmbedSearch };
-
-const YT_INNERTUBE_ORIGIN = "https://www.youtube.com";
-// What youtube.com's own client identifies as; the version only has to look plausible.
-const YT_INNERTUBE_CLIENT_VERSION = "2.20240101.00.00";
+const YT_EMBED_KEYS = { a: ytEmbedLike, d: ytEmbedSave, s: ytEmbedSearch };
 
 document.addEventListener("keydown", ytEmbedOnKeyDown);
 
@@ -26,6 +24,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "ytLikeInFrame") {
         ytLikeViaInnertube(message.videoId)
             .then(() => sendResponse({ ok: true, title: ytEmbedVideoTitle() }))
+            .catch((error) => sendResponse({ ok: false, text: error.message }));
+
+        return true;
+    }
+
+    if (message.action === "ytSaveInFrame") {
+        ytSaveToDownloads(message.videoId)
+            .then((result) => sendResponse({ ok: true, result: result, title: ytEmbedVideoTitle() }))
             .catch((error) => sendResponse({ ok: false, text: error.message }));
 
         return true;
@@ -96,6 +102,14 @@ function ytEmbedLike() {
     }
 }
 
+function ytEmbedSave() {
+    const videoId = ytEmbedVideoId();
+
+    if (videoId !== null) {
+        spadinhRequestYtSave(videoId);
+    }
+}
+
 // Whether this frame's video is actually playing: when it isn't, the service worker prefers text
 // highlighted on the page around the player.
 function ytEmbedIsPlaying() {
@@ -113,79 +127,4 @@ function ytEmbedSearch() {
 // Shift+S: the same query, in SoulseekQt. The service worker asks this frame for the title anyway.
 function ytEmbedSoulseek() {
     spadinhSend({ action: "slskSearch", title: ytEmbedVideoTitle(), artist: "", playing: ytEmbedIsPlaying() });
-}
-
-// --- The like button's own request, replayed ---------------------------------------------------
-//
-// youtube.com authorises its internal API with `SAPISIDHASH <seconds>_<sha1("<seconds> <SAPISID>
-// <origin>")>`, derived from the SAPISID cookie, plus the session cookies themselves. This is
-// undocumented and can stop working whenever YouTube changes it — any failure is reported to the
-// service worker, which then takes the watch-page route instead.
-
-async function ytLikeViaInnertube(videoId) {
-    const sapisid = ytCookie("SAPISID") || ytCookie("__Secure-3PAPISID");
-
-    if (!sapisid) {
-        throw new Error("not signed in to YouTube in the player");
-    }
-
-    const seconds = Math.floor(Date.now() / 1000);
-    const hash = await ytSha1Hex(seconds + " " + sapisid + " " + YT_INNERTUBE_ORIGIN);
-    const apiKey = ytPageConfig("INNERTUBE_API_KEY");
-    const url = YT_INNERTUBE_ORIGIN + "/youtubei/v1/like/like" +
-        (apiKey ? "?key=" + encodeURIComponent(apiKey) : "");
-
-    const response = await fetch(url, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-            "Authorization": "SAPISIDHASH " + seconds + "_" + hash,
-            "X-Origin": YT_INNERTUBE_ORIGIN,
-            // Which signed-in Google account, when there's more than one in the session.
-            "X-Goog-AuthUser": ytPageConfig("SESSION_INDEX") || "0",
-            "X-Youtube-Client-Name": "1",
-            "X-Youtube-Client-Version": YT_INNERTUBE_CLIENT_VERSION,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            context: { client: { clientName: "WEB", clientVersion: YT_INNERTUBE_CLIENT_VERSION } },
-            target: { videoId: videoId }
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error("YouTube refused the like (HTTP " + response.status + ")");
-    }
-
-    const payload = await response.json();
-
-    if (payload && payload.error) {
-        throw new Error("YouTube refused the like: " + (payload.error.message || payload.error.status));
-    }
-}
-
-function ytCookie(name) {
-    const match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-
-    return match ? decodeURIComponent(match[1]) : null;
-}
-
-// `ytcfg` lives in the page's own world, out of a content script's reach, but its values sit in
-// the inline script that sets it.
-function ytPageConfig(name) {
-    for (const script of document.querySelectorAll("script")) {
-        const match = script.textContent.match(new RegExp('"' + name + '":"?([^",}]+)"?'));
-
-        if (match) {
-            return match[1];
-        }
-    }
-
-    return null;
-}
-
-async function ytSha1Hex(text) {
-    const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(text));
-
-    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

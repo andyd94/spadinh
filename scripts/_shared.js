@@ -127,6 +127,11 @@ function spadinhRequestYtLike(videoId) {
     spadinhSend({ action: "ytLike", videoId: videoId });
 }
 
+// `d`: the video into the Downloads playlist on YouTube (see background.js, `ytSave`).
+function spadinhRequestYtSave(videoId) {
+    spadinhSend({ action: "ytSave", videoId: videoId });
+}
+
 // Shift+S and nothing else held. With Shift down the key reports as "S", so the lowercase keymaps
 // never see it; the handlers check this before they rule out Shift.
 function spadinhIsSoulseekChord(event) {
@@ -136,4 +141,22 @@ function spadinhIsSoulseekChord(event) {
 // Same "artist - track" query as `s`, searched in SoulseekQt instead of Google (see background.js).
 function spadinhRequestSoulseekSearch(title, artist) {
     spadinhSend({ action: "slskSearch", title: title, artist: artist });
+}
+
+// The playlist `d` saves to, matched by name (any case); created private on first use.
+const YT_DOWNLOADS_PLAYLIST = "Downloads";
+
+// The toast for a save, from whichever frame did it; the service worker words it too.
+function ytSaveResultText(result, title) {
+    const what = title ? ": " + title : "";
+
+    if (result === "already") {
+        return "already in " + YT_DOWNLOADS_PLAYLIST + what;
+    }
+
+    if (result === "created") {
+        return "made a private " + YT_DOWNLOADS_PLAYLIST + " playlist and added" + what;
+    }
+
+    return "added to " + YT_DOWNLOADS_PLAYLIST + what;
 }

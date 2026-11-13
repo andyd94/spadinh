@@ -33,12 +33,12 @@
     },
     {
       "matches": ["https://*.youtube.com/*"],
-      "js": ["scripts/_shared.js", "scripts/youtube-keys.js"]
+      "js": ["scripts/_shared.js", "scripts/yt-innertube.js", "scripts/youtube-keys.js"]
     },
     {
       "matches": ["https://www.youtube.com/embed/*", "https://www.youtube-nocookie.com/embed/*"],
       "all_frames": true,
-      "js": ["scripts/_shared.js", "scripts/youtube-embed-keys.js"]
+      "js": ["scripts/_shared.js", "scripts/yt-innertube.js", "scripts/youtube-embed-keys.js"]
     }
   ]
 }

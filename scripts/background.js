@@ -963,12 +963,18 @@ async function likeInEmbedFrame(tabId, videoId) {
 }
 
 async function likeOnYouTube(videoId) {
+    return askWatchPage(videoId, "ytAutoLike");
+}
+
+// Opens the video on youtube.com in a background tab, asks youtube-keys.js there to do `action`,
+// and closes the tab again either way.
+async function askWatchPage(videoId, action) {
     const tab = await chrome.tabs.create({ url: "https://www.youtube.com/watch?v=" + videoId, active: false });
 
     try {
         await waitForTabLoad(tab.id);
 
-        const response = await sendToTabWithRetry(tab.id, { action: "ytAutoLike" });
+        const response = await sendToTabWithRetry(tab.id, { action: action });
 
         if (!response || !response.ok) {
             throw new Error(response ? response.text : "no reply from the YouTube tab");
@@ -978,6 +984,73 @@ async function likeOnYouTube(videoId) {
     } finally {
         chrome.tabs.remove(tab.id).catch(() => {});
     }
+}
+
+// --- Saving a Discogs-embedded video to the Downloads playlist ----------------------------------
+//
+// `d`: the same route as a like. The embed frame adds it in place through YouTube's internal API
+// (yt-innertube.js, `ytSaveInFrame`), creating the playlist on first use; failing that, a
+// background watch page does it (`ytAutoSave`). Toasts land on the Discogs page.
+
+const ytSavesInFlight = new Set();
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "ytSave") {
+        return false;
+    }
+
+    const originTabId = sender.tab ? sender.tab.id : null;
+
+    if (ytSavesInFlight.has(originTabId)) {
+        sendResponse({ ok: false, text: "already adding that one…" });
+        return false;
+    }
+
+    ytSavesInFlight.add(originTabId);
+
+    resolveCurrentVideoId(originTabId, message.videoId)
+        .then((videoId) => {
+            if (!videoId) {
+                throw new Error("no video playing on this page");
+            }
+
+            notifyPage(originTabId, "adding to Downloads…");
+
+            return saveInEmbedFrame(originTabId, videoId).catch((error) => {
+                notifyPage(originTabId, "player couldn't add it (" + error.message + ") - trying a watch page…");
+                return askWatchPage(videoId, "ytAutoSave");
+            });
+        })
+        .then((text) => notifyPage(originTabId, text))
+        .catch((error) => notifyPage(originTabId, error.message))
+        .finally(() => ytSavesInFlight.delete(originTabId));
+
+    sendResponse({ ok: true });
+    return false;
+});
+
+async function saveInEmbedFrame(tabId, videoId) {
+    if (tabId === null) {
+        throw new Error("no page to ask");
+    }
+
+    let answer;
+
+    try {
+        answer = await chrome.tabs.sendMessage(tabId, { action: "ytSaveInFrame", videoId: videoId });
+    } catch (error) {
+        throw new Error("no player frame");
+    }
+
+    if (!answer) {
+        throw new Error("no player frame");
+    }
+
+    if (!answer.ok) {
+        throw new Error(answer.text);
+    }
+
+    return ytSaveResultText(answer.result, answer.title || videoId);
 }
 
 function waitForTabLoad(tabId) {

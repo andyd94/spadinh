@@ -1,12 +1,12 @@
 // YouTube watch pages: `s` searches Google for the playing video as "artist - track", `a` likes it,
-// `Shift+S` searches SoulseekQt for it.
+// `d` adds it to the Downloads playlist, `Shift+S` searches SoulseekQt for it.
 
-const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo };
+const YT_KEYS = { s: ytSearchVideo, a: ytLikeVideo, d: ytSaveVideo };
 
 ytKeysInit();
 
 function ytKeysInit() {
-    // Capture phase, so this runs ahead of YouTube's own hotkey manager. Neither `s`, `a` nor
+    // Capture phase, so this runs ahead of YouTube's own hotkey manager. None of `s`, `a`, `d` or
     // `Shift+S` is a YouTube shortcut today (`l` was, which is why like moved off it), and
     // stopping the event here keeps it that way if YouTube ever binds one of them.
     document.addEventListener("keydown", ytOnKeyDown, true);
@@ -109,6 +109,49 @@ function ytLikeVideo() {
     button.click();
     spadinhShowToast("liked");
 }
+
+function ytWatchVideoId() {
+    return new URLSearchParams(window.location.search).get("v");
+}
+
+// Straight from this page: it's youtube.com with the user's cookies, so no service worker needed.
+function ytSaveVideo() {
+    const videoId = ytWatchVideoId();
+
+    if (!videoId) {
+        spadinhShowToast("couldn't tell which video this is");
+        return;
+    }
+
+    const title = ytVideoTitle();
+
+    spadinhShowToast("adding to " + YT_DOWNLOADS_PLAYLIST + "…");
+
+    ytSaveToDownloads(videoId)
+        .then((result) => spadinhShowToast(ytSaveResultText(result, title)))
+        .catch((error) => spadinhShowToast("couldn't add to " + YT_DOWNLOADS_PLAYLIST + ": " + error.message));
+}
+
+// --- Saves asked for from Discogs, when the player frame couldn't ------------------------------
+//
+// Same background tab as the likes below, kept muted and paused while it exists.
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action !== "ytAutoSave") {
+        return false;
+    }
+
+    const keepQuiet = setInterval(ytSilenceVideo, 250);
+
+    ytSilenceVideo();
+
+    ytSaveToDownloads(ytWatchVideoId())
+        .then((result) => sendResponse({ ok: true, text: ytSaveResultText(result, ytVideoTitle()) }))
+        .catch((error) => sendResponse({ ok: false, text: "couldn't add to " + YT_DOWNLOADS_PLAYLIST + ": " + error.message }))
+        .finally(() => clearInterval(keepQuiet));
+
+    return true;
+});
 
 // --- Likes asked for from Discogs ----------------------------------------------------------------
 

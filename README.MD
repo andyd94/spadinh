@@ -59,9 +59,13 @@
 
 - `a` likes the video. It only ever likes — pressing it on a video you've already liked says so rather than unliking it.
 
-- Neither key clashes with YouTube's own shortcuts. Keys are ignored while typing in a field or with a modifier held.
+- `d` adds the video to your private **Downloads** playlist on YouTube — a shortlist to flick through later and trim before downloading. The playlist is found by name (any case) and made, private, the first time `d` is pressed if you don't have one. A video already in it is left alone and the toast says so. It uses your YouTube session the same way `a` does (YouTube's own internal request, no Google Cloud or sign-in setup), so it stops working if YouTube changes that request; the toast says why.
+
+- None of these keys clash with YouTube's own shortcuts. Keys are ignored while typing in a field or with a modifier held.
 
 - On a Discogs release page, `a` likes the video playing in the embedded player, without leaving the page. The embed has no like button, so the extension sends the like button's own internal request from inside the player frame, using your YouTube session. That request is undocumented, so if YouTube ever rejects it — or you're signed out in the player, which happens when third-party cookies are blocked — the extension falls back to opening the video on YouTube in a background tab, liking it there and closing the tab again. A toast reports which happened. It works whether the page or the player has keyboard focus.
+
+- On a Discogs release page, `d` adds the video playing in the embedded player to the Downloads playlist, the same way `a` likes it: from inside the player when it can, else through a background YouTube tab that's closed again. It works whether the page or the player has keyboard focus.
 
 - On a Discogs release page, `s` opens the same Google search as on YouTube for the video playing in the embedded player. When a video's title has no ` - ` of its own, the release artist from the page heading stands in as the artist.
 

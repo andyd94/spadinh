@@ -24,11 +24,7 @@ Letter keys are ignored while typing in a field or with another modifier held. A
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and select the `spadinh` folder.
 
-To update:
-
-1. `git pull`
-2. Reload the extension in `chrome://extensions`.
-3. Refresh any open Discogs and YouTube tabs.
+To update, `git pull`. Within half a minute the extension notices its files have changed, reloads itself and refreshes open Discogs and YouTube tabs. A tab that's playing sound is left alone and refreshed when it stops; until then Spadinh's keys do nothing in it. (To hurry it, reload the extension in `chrome://extensions` yourself; the tabs are refreshed the same way.)
 
 ### Downloadinh (for `Shift+D`)
 
@@ -120,4 +116,4 @@ When nothing is playing, `s` and `Shift+D` take the highlighted text instead, e.
 | Toast: downloadinh needs a pick | Downloadinh wasn't sure of the artist or title. Open http://localhost:5031 and pick or correct it. |
 | `a` or `d` on Discogs opens a background tab | Expected fallback when the embedded player is signed out. |
 | `a` or `d` stops working everywhere | YouTube changed its internal request; the toast says why. |
-| Keys do nothing after an update | Reload the extension and refresh the tab. |
+| Keys do nothing after an update | The tab was playing when the update landed and hasn't been refreshed yet. Refresh it. |

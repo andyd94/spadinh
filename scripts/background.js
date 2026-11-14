@@ -1285,3 +1285,137 @@ async function sendToTabWithRetry(tabId, message) {
 
     throw new Error("the YouTube tab never answered");
 }
+
+
+// --- Picking up new code ---------------------------------------------------------------------------
+//
+// The extension is loaded unpacked from a git checkout, and a `git pull` there changes nothing
+// Chrome is running until the extension is reloaded and its tabs refreshed. This does both: every
+// half minute the files on disk are fingerprinted, and when they no longer match what was loaded
+// the extension reloads itself, then refreshes the Discogs and YouTube tabs so they run the new
+// content scripts. A tab that's playing sound is left alone until it stops, so a pull never cuts
+// off a tune.
+
+const SELF_RELOAD_ALARM = "spadinhSelfReload";
+const SELF_RELOAD_SETTLE_MS = 3000;
+const SELF_RELOAD_TAB_URLS = ["*://*.discogs.com/*", "*://*.youtube.com/*"];
+
+chrome.alarms.create(SELF_RELOAD_ALARM, { periodInMinutes: 0.5 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === SELF_RELOAD_ALARM) {
+        checkForNewCode().catch(() => {});
+    }
+});
+
+// Fires after every load of the extension, a reload from here included: what's on disk now is
+// what's running, and open tabs still hold the content scripts of the load before.
+chrome.runtime.onInstalled.addListener(() => {
+    adoptLoadedCode().catch(() => {});
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.audible === false || changeInfo.status === "loading") {
+        settleStaleTab(tabId, changeInfo.status === "loading").catch(() => {});
+    }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    settleStaleTab(tabId, true).catch(() => {});
+});
+
+// Every file the manifest and the popup name, hashed together. Unpacked, these are read straight
+// off the disk each time.
+async function codeFingerprint() {
+    const manifest = await (await fetch(chrome.runtime.getURL("manifest.json"), { cache: "no-store" })).json();
+    const files = new Set(["manifest.json", manifest.background.service_worker, manifest.action.default_popup,
+        "scripts/_shared.js", "popup/popup.js", "popup/dinhscogvery.js", "css/popup.css"]);
+
+    for (const entry of manifest.content_scripts || []) {
+        for (const file of (entry.js || []).concat(entry.css || [])) {
+            files.add(file);
+        }
+    }
+
+    const parts = [];
+
+    for (const file of Array.from(files).sort()) {
+        const response = await fetch(chrome.runtime.getURL(file), { cache: "no-store" });
+
+        parts.push(file + "\n" + (response.ok ? await response.text() : "missing"));
+    }
+
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parts.join("\n\u0000\n")));
+
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function adoptLoadedCode() {
+    await chrome.storage.local.set({ loadedCode: await codeFingerprint() });
+    await refreshTabsForNewCode();
+}
+
+async function checkForNewCode() {
+    const stored = await chrome.storage.local.get(["loadedCode", "reloadedForCode"]);
+    const current = await codeFingerprint();
+
+    if (!stored.loadedCode) {
+        await chrome.storage.local.set({ loadedCode: current });
+        return;
+    }
+
+    if (current === stored.loadedCode) {
+        return;
+    }
+
+    // Already reloaded for exactly these files and still here comparing: the load wasn't recorded.
+    // Record it now rather than reload for ever.
+    if (current === stored.reloadedForCode) {
+        await adoptLoadedCode();
+        return;
+    }
+
+    // A pull writes its files one after another; wait for it to finish before loading them.
+    await new Promise((resolve) => setTimeout(resolve, SELF_RELOAD_SETTLE_MS));
+
+    if (await codeFingerprint() !== current) {
+        return;
+    }
+
+    await chrome.storage.local.set({ reloadedForCode: current });
+    chrome.runtime.reload();
+}
+
+// Quiet tabs are refreshed now; ones playing sound are remembered and refreshed when they stop
+// (`settleStaleTab`). Until then their keys do nothing, the old content script having lost its
+// extension.
+async function refreshTabsForNewCode() {
+    const tabs = await chrome.tabs.query({ url: SELF_RELOAD_TAB_URLS });
+    const waiting = [];
+
+    for (const tab of tabs) {
+        if (tab.audible) {
+            waiting.push(tab.id);
+        } else {
+            chrome.tabs.reload(tab.id).catch(() => {});
+        }
+    }
+
+    await chrome.storage.local.set({ staleTabs: waiting });
+}
+
+// `gone`: the tab closed or is loading afresh on its own, so it's no longer stale either way.
+async function settleStaleTab(tabId, gone) {
+    const stored = await chrome.storage.local.get(["staleTabs"]);
+    const waiting = stored.staleTabs || [];
+
+    if (!waiting.includes(tabId)) {
+        return;
+    }
+
+    await chrome.storage.local.set({ staleTabs: waiting.filter((id) => id !== tabId) });
+
+    if (!gone) {
+        chrome.tabs.reload(tabId).catch(() => {});
+    }
+}

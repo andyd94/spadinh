@@ -40,7 +40,14 @@ function spadinhShowToast(text) {
             "overflow-wrap: anywhere",
             "pointer-events: none"
         ].join("; ");
-        document.body.appendChild(toast);
+    }
+
+    // In fullscreen only the fullscreen element's own subtree is drawn, so the toast has to sit
+    // inside it to be seen; back on the body otherwise.
+    const home = document.fullscreenElement || document.body;
+
+    if (toast.parentElement !== home) {
+        home.appendChild(toast);
     }
 
     toast.textContent = text;
@@ -171,10 +178,12 @@ function spadinhRequestYtSave(videoId) {
     spadinhSend({ action: "ytSave", videoId: videoId });
 }
 
-// Shift+D and nothing else held. With Shift down the key reports as "D", so the lowercase keymaps
-// never see it; the handlers check this before they rule out Shift.
+// Shift+D and nothing else held. With Shift down the key reports as "D" (or "d" with Caps Lock
+// on, hence the physical key), so the lowercase keymaps never see it; the handlers check this
+// before they rule out Shift.
 function spadinhIsDownloadChord(event) {
-    return event.key === "D" && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey;
+    return (event.code === "KeyD" || event.key === "D") && event.shiftKey &&
+        !event.metaKey && !event.ctrlKey && !event.altKey;
 }
 
 // Same "artist - track" query as `s`, handed to Downloadinh to download instead of googled (see background.js).
